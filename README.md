@@ -18,9 +18,9 @@ The order of what the app promotes is fixed: **wear what you own first, fill a r
 
 | What | Why |
 | --- | --- |
-| [Node.js](https://nodejs.org) with npm | Runs the development server on your computer |
+| [Node.js](https://nodejs.org) 20.19.4 or newer (22.13+ or 24.3+ also fine) | Runs the development server on your computer. `npm` refuses to install on an older Node |
 | [Ollama](https://ollama.com) with the model `gemma4:12b` | Gemma looks at the clothing photos, on your own computer. Photos never leave it. Needs about 8 GB of disk and a computer with 16 GB of RAM or more |
-| [Expo Go](https://expo.dev/go) on a phone | Shows the app on the phone, without building or installing it. Tested on Android |
+| [Expo Go for **SDK 57**](https://expo.dev/go?sdkVersion=57&platform=android&device=true) on a phone | Shows the app on the phone, without building or installing it. Tested on Android. The Play Store offers only the newest Expo Go, which is for a newer SDK and will refuse to open this project: install SDK 57 from the link, and turn off auto-update for Expo Go |
 | Phone and computer on the same Wi-Fi | The phone loads the app, and sends photos for tagging, to your computer |
 
 No API key and no account are needed.
@@ -33,13 +33,13 @@ No API key and no account are needed.
    ollama pull gemma4:12b
    ```
 
-2. Install the packages:
+2. Install the packages exactly as locked:
 
    ```bash
-   npm install
+   npm ci
    ```
 
-   npm will report security warnings. Do not run `npm audit fix --force`: the "fix" it suggests downgrades Expo by many versions and breaks the project. The warnings are in development tools that do not ship in the app.
+   Use `npm ci`, not `npm install`: it installs precisely what `package-lock.json` says and stops with an error if the lock and `package.json` disagree. npm will report security warnings. Do not run `npm audit fix --force`: the "fix" it suggests downgrades Expo by many versions and breaks the project. The warnings are in development tools that do not ship in the app.
 
 3. Start the development server:
 
