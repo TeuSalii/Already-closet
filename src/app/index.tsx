@@ -5,15 +5,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCloset } from "@/client/closet-context";
 import { colors } from "@/client/theme";
-import { describeWear, wearStats } from "@/client/wear-stats";
 import type { Piece } from "@/storage/closet";
 
 // The closet: everything you already own, as a grid.
 export default function Closet() {
   const insets = useSafeAreaInsets();
-  const { pieces, wears, addPiece, readAgain } = useCloset();
+  const { pieces, addPiece, readAgain } = useCloset();
   const secondhand = pieces.filter((piece) => piece.origin === "secondhand").length;
-  const canWear = pieces.some((piece) => piece.status === "read");
 
   async function add() {
     const id = await addPiece();
@@ -44,26 +42,19 @@ export default function Closet() {
           </Text>
         }
         renderItem={({ item }) => (
-          <Tile piece={item} wearLine={describeWear(wearStats(item.id, wears))} onPress={() => open(item)} />
+          <Tile piece={item} onPress={() => open(item)} />
         )}
       />
-      {/* The daily action is the strong one, once there is something to wear.
-          Before that, adding is the only thing to do, so it is the strong one. */}
       <View style={[styles.actions, { marginBottom: insets.bottom + 16 }]}>
-        <Pressable style={[styles.button, canWear ? styles.outlined : styles.filled]} onPress={() => add().catch(console.warn)}>
-          <Text style={[styles.buttonText, canWear ? styles.outlinedText : styles.filledText]}>Add a piece</Text>
+        <Pressable style={[styles.button, styles.filled]} onPress={() => add().catch(console.warn)}>
+          <Text style={[styles.buttonText, styles.filledText]}>Add a piece</Text>
         </Pressable>
-        {canWear && (
-          <Pressable style={[styles.button, styles.filled]} onPress={() => router.push("/wear")}>
-            <Text style={[styles.buttonText, styles.filledText]}>Wearing today</Text>
-          </Pressable>
-        )}
       </View>
     </View>
   );
 }
 
-function Tile({ piece, wearLine, onPress }: { piece: Piece; wearLine: string; onPress: () => void }) {
+function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
   return (
     <Pressable style={styles.tile} onPress={onPress}>
       <View>
@@ -84,7 +75,6 @@ function Tile({ piece, wearLine, onPress }: { piece: Piece; wearLine: string; on
       {piece.status === "read" && (
         <View style={styles.caption}>
           <Text style={styles.label}>{piece.tags.label}</Text>
-          <Text style={styles.muted}>{wearLine}</Text>
         </View>
       )}
     </Pressable>
@@ -117,8 +107,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 12, marginHorizontal: 16 },
   button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center" },
   filled: { backgroundColor: colors.ink },
-  outlined: { borderWidth: 1.5, borderColor: colors.line },
   buttonText: { fontSize: 16, fontWeight: "600" },
   filledText: { color: colors.page },
-  outlinedText: { color: colors.ink },
 });

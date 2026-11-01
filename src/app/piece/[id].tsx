@@ -4,7 +4,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { useCloset } from "@/client/closet-context";
 import { colors } from "@/client/theme";
-import { describeWear, wearStats } from "@/client/wear-stats";
 import type { Origin } from "@/storage/closet";
 
 const ORIGINS: { value: Origin; label: string }[] = [
@@ -13,15 +12,13 @@ const ORIGINS: { value: Origin; label: string }[] = [
   { value: "gift", label: "Gift" },
 ];
 
-// One piece: what it is, where it's from, and you wearing it.
+// One piece: what it is and where it's from.
 export default function PieceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { pieces, wears, setOrigin, readAgain } = useCloset();
+  const { pieces, setOrigin, readAgain } = useCloset();
 
   const piece = pieces.find((p) => p.id === id);
   if (piece === undefined) throw new Error(`No piece with id ${id}`);
-
-  const selfies = wears.filter((wear) => wear.selfie !== null && wear.pieceIds.includes(piece.id));
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -41,7 +38,6 @@ export default function PieceScreen() {
       {piece.status === "read" && (
         <View style={styles.block}>
           <Text style={styles.title}>{piece.tags.label}</Text>
-          <Text style={styles.muted}>{describeWear(wearStats(piece.id, wears))}</Text>
           <Text style={styles.details}>
             {[piece.tags.type, piece.tags.colors.join(", "), piece.tags.pattern, piece.tags.material]
               .filter((part) => part !== "unknown")
@@ -70,20 +66,6 @@ export default function PieceScreen() {
           })}
         </View>
       </View>
-
-      {selfies.length > 0 && (
-        <View style={styles.block}>
-          <Text style={styles.question}>You in it</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-            {selfies.map((wear) => (
-              <View key={wear.id} style={styles.selfieBox}>
-                <Image source={wear.selfie} style={styles.selfie} contentFit="cover" />
-                <Text style={styles.muted}>{wear.date}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      )}
     </ScrollView>
   );
 }
@@ -102,6 +84,4 @@ const styles = StyleSheet.create({
   chipChosen: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipText: { fontSize: 15, color: colors.ink },
   chipTextChosen: { color: colors.page },
-  selfieBox: { gap: 4 },
-  selfie: { width: 120, height: 160, borderRadius: 12, backgroundColor: colors.photoBack },
 });

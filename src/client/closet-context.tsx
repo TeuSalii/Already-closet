@@ -1,30 +1,18 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 import { capture, readPhoto } from "@/client/add-piece";
-import { today } from "@/client/wear-stats";
-import {
-  loadPieces,
-  loadWears,
-  type Origin,
-  type Piece,
-  type PieceStatus,
-  savePieces,
-  saveWears,
-  type Wear,
-} from "@/storage/closet";
+import { loadPieces, type Origin, type Piece, type PieceStatus, savePieces } from "@/storage/closet";
 
-// The closet as shared state. Three screens now need the same pieces and
-// wears (closet, piece, wearing today). Kept in one screen, the others would
-// see stale copies. A context holds them once, above all screens, and every
-// change goes through the functions below.
+// The closet as shared state. Two screens need the same pieces (closet,
+// piece). Kept in one screen, the other would see a stale copy. A context
+// holds them once, above all screens, and every change goes through the
+// functions below.
 
 type Closet = {
   pieces: Piece[];
-  wears: Wear[];
   addPiece: () => Promise<string | null>; // the new piece's id, or null if cancelled
   readAgain: (piece: Piece) => void;
   setOrigin: (id: string, origin: Origin) => void;
-  logWear: (pieceIds: string[], selfie: string | null) => void;
 };
 
 const ClosetContext = createContext<Closet | null>(null);
@@ -38,22 +26,15 @@ export function useCloset(): Closet {
 export function ClosetProvider({ children }: { children: ReactNode }) {
   // null while loading, so an empty list is never saved over a full one.
   const [pieces, setPieces] = useState<Piece[] | null>(null);
-  const [wears, setWears] = useState<Wear[] | null>(null);
 
   useEffect(() => {
-    Promise.all([loadPieces(), loadWears()]).then(([p, w]) => {
-      setPieces(p);
-      setWears(w);
-    });
+    loadPieces().then(setPieces);
   }, []);
 
   // Whatever changes a list, it is saved. One place, so it is never forgotten.
   useEffect(() => {
     if (pieces !== null) savePieces(pieces);
   }, [pieces]);
-  useEffect(() => {
-    if (wears !== null) saveWears(wears);
-  }, [wears]);
 
   // Changes one piece, always starting from the newest version of it.
   function update(id: string, change: (piece: Piece) => Piece) {
@@ -78,15 +59,14 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  if (pieces === null || wears === null) return null;
+  if (pieces === null) return null;
 
   const closet: Closet = {
     pieces,
-    wears,
 
     async addPiece() {
       const id = Date.now().toString(36);
-      const photo = await capture(`${id}.jpg`, true);
+      const photo = await capture(`${id}.jpg`);
       if (photo === null) return null;
       setPieces((current) => [{ id, photo, addedAt: new Date().toISOString(), status: "reading" }, ...current!]);
       read(id, photo);
@@ -99,11 +79,6 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
 
     setOrigin(id, origin) {
       update(id, (piece) => ({ ...piece, origin }));
-    },
-
-    logWear(pieceIds, selfie) {
-      const wear: Wear = { id: Date.now().toString(36), date: today(), pieceIds, selfie };
-      setWears((current) => [wear, ...current!]);
     },
   };
 

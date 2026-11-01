@@ -8,9 +8,8 @@ import type { GarmentTags, TagRequest, TagResponse } from "@/shared/garment";
 
 // Opens the camera and keeps the photo under `fileName`. Returns its uri,
 // or null if the person backs out.
-// square: true for a piece (cropped to the piece, like the grid it lands in);
-// false for a mirror photo (the whole person, uncropped).
-export async function capture(fileName: string, square: boolean): Promise<string | null> {
+// The photo is cropped to the piece, like the grid it lands in.
+export async function capture(fileName: string): Promise<string | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
     throw new Error("Camera permission was not given");
@@ -18,7 +17,7 @@ export async function capture(fileName: string, square: boolean): Promise<string
 
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: "images",
-    allowsEditing: square, // crop to the piece: less background, better tags
+    allowsEditing: true, // crop to the piece: less background, better tags
     aspect: [1, 1],
     quality: 0.6, // a phone photo is several MB; the model needs far less
   });

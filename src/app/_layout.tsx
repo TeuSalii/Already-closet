@@ -9,8 +9,6 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="index" options={{ title: "My closet" }} />
         <Stack.Screen name="piece/[id]" options={{ title: "" }} />
-        {/* A modal: it slides up over the closet, a short task you finish and leave. */}
-        <Stack.Screen name="wear" options={{ title: "Wearing today", presentation: "modal" }} />
       </Stack>
     </ClosetProvider>
   );
