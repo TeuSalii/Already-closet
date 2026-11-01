@@ -9,7 +9,7 @@
 export const TYPES = [
   "shirt", "t-shirt", "top", "blouse", "polo", "tank-top", "sweater", "cardigan", "hoodie",
   "pants", "jeans", "shorts", "skirt", "dress", "jumpsuit",
-  "jacket", "coat", "blazer", "vest", "suit",
+  "jacket", "coat", "blazer", "vest",
   "shoes", "sneakers", "boots", "sandals", "socks", "tights",
   "hat", "scarf", "belt", "bag", "tie", "accessories",
 ] as const;
@@ -31,15 +31,53 @@ export const MATERIALS = [
   "velvet", "nylon", "canvas", "down", "unknown",
 ] as const;
 
-export const SEASONS = ["spring", "summer", "fall", "winter"] as const;
+// One season per piece. Spring and fall clothes are mostly the same clothes,
+// so "transitional" replaces both: the model no longer has to guess between
+// two answers that are equally right. "all-year" matches every season.
+export const SEASONS = ["summer", "winter", "transitional", "all-year"] as const;
+
+// Ordered from least to most dressed up, on purpose: outfit rules can then
+// compare positions ("within one step"). Formality is visible in a photo
+// (fabric, cut, finish); occasion is not, so occasion moves to what the
+// person asks for when they want an outfit.
+export const FORMALITIES = ["sport", "casual", "smart-casual", "formal"] as const;
+
+// Each word means one thing. "casual" left because it is a formality word,
+// "elegant" because it overlaps "classic": the model would flip between them.
+export const STYLES = ["minimalist", "classic", "vintage", "streetwear", "sporty", "romantic"] as const;
+
+// "low" makes the app ask the person instead of trusting the tags.
+export const CONFIDENCES = ["low", "high"] as const;
+
+// The coarse category comes from the type, worked out here, not asked of the
+// model. If the model chose both, it could answer "jeans" and "top" at once.
+// Record<Type, Category> makes TypeScript refuse to build if a type is
+// missing from this table.
+export const CATEGORIES = ["top", "bottom", "dress", "outerwear", "shoes", "accessory"] as const;
+type Type = (typeof TYPES)[number];
+type Category = (typeof CATEGORIES)[number];
+const CATEGORY_OF: Record<Type, Category> = {
+  shirt: "top", "t-shirt": "top", top: "top", blouse: "top", polo: "top", "tank-top": "top",
+  sweater: "top", cardigan: "top", hoodie: "top",
+  pants: "bottom", jeans: "bottom", shorts: "bottom", skirt: "bottom",
+  dress: "dress", jumpsuit: "dress",
+  jacket: "outerwear", coat: "outerwear", blazer: "outerwear", vest: "outerwear",
+  shoes: "shoes", sneakers: "shoes", boots: "shoes", sandals: "shoes",
+  socks: "accessory", tights: "accessory", hat: "accessory", scarf: "accessory",
+  belt: "accessory", bag: "accessory", tie: "accessory", accessories: "accessory",
+};
+export const categoryOf = (type: Type): Category => CATEGORY_OF[type];
 
 export type GarmentTags = {
   label: string; // a short name a person would say: "navy wool crewneck"
-  type: (typeof TYPES)[number];
+  type: Type;
   colors: (typeof COLORS)[number][]; // the main colour first
   pattern: (typeof PATTERNS)[number];
   material: (typeof MATERIALS)[number];
-  seasons: (typeof SEASONS)[number][];
+  season: (typeof SEASONS)[number];
+  formality: (typeof FORMALITIES)[number];
+  style: (typeof STYLES)[number]; // the one it reads as most
+  confidence: (typeof CONFIDENCES)[number];
 };
 
 // The same shape as GarmentTags, written as JSON Schema. Ollama uses it to
@@ -53,9 +91,12 @@ export const TAG_SCHEMA = {
     colors: { type: "array", items: { type: "string", enum: COLORS }, minItems: 1, maxItems: 3 },
     pattern: { type: "string", enum: PATTERNS },
     material: { type: "string", enum: MATERIALS },
-    seasons: { type: "array", items: { type: "string", enum: SEASONS }, minItems: 1, maxItems: 4 },
+    season: { type: "string", enum: SEASONS },
+    formality: { type: "string", enum: FORMALITIES },
+    style: { type: "string", enum: STYLES },
+    confidence: { type: "string", enum: CONFIDENCES },
   },
-  required: ["label", "type", "colors", "pattern", "material", "seasons"],
+  required: ["label", "type", "colors", "pattern", "material", "season", "formality", "style", "confidence"],
 } as const;
 
 // POST /api/tag

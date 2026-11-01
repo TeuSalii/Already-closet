@@ -32,8 +32,11 @@ export type Wear = {
 };
 
 // Separate keys, so adding wears needed no change to the saved pieces.
-const PIECES_KEY = "closet:v1";
-const WEARS_KEY = "closet:wears:v1";
+// v2 (2026-10-31): new label lists (season, formality, confidence). Pieces
+// saved under v1 have the old words, so they are left behind and you start
+// fresh. Wears move too: they point at v1 pieces that no longer load.
+const PIECES_KEY = "closet:v2";
+const WEARS_KEY = "closet:wears:v2";
 
 async function load<T>(key: string): Promise<T[]> {
   const raw = await AsyncStorage.getItem(key);

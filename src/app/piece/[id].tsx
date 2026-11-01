@@ -47,7 +47,7 @@ export default function PieceScreen() {
               .filter((part) => part !== "unknown")
               .join(" · ")}
           </Text>
-          <Text style={styles.details}>Good for {piece.tags.seasons.join(", ")}</Text>
+          <Text style={styles.details}>{piece.tags.season} · {piece.tags.formality} · {piece.tags.style}</Text>
         </View>
       )}
 
