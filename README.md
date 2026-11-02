@@ -20,7 +20,7 @@ The order of what the app promotes is fixed: **wear what you own first, fill a r
 | --- | --- |
 | [Node.js](https://nodejs.org) 20.19.4 or newer (22.13+ or 24.3+ also fine) | Runs the development server on your computer. `npm` refuses to install on an older Node |
 | An [OpenAI API key](https://platform.openai.com/api-keys) | An OpenAI vision model looks at the clothing photos. The photos are sent to OpenAI, and each scan costs a small amount |
-| [Expo Go for **SDK 57**](https://expo.dev/go?sdkVersion=57&platform=android&device=true) on a phone | Shows the app on the phone, without building or installing it. Tested on Android. The Play Store offers only the newest Expo Go, which is for a newer SDK and will refuse to open this project: install SDK 57 from the link, and turn off auto-update for Expo Go |
+| [Expo Go for **SDK 58**](https://expo.dev/go?sdkVersion=58&platform=android&device=true) on a phone | Shows the app on the phone, without building or installing it. Tested on Android. The Play Store offers only the newest Expo Go, which is for a newer SDK and will refuse to open this project: install SDK 58 from the link, and turn off auto-update for Expo Go |
 | Phone and computer on the same Wi-Fi | The phone loads the app, and sends photos for tagging, to your computer |
 
 The key stays on your computer, in the development server. It is never sent to the phone.
