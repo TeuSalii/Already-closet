@@ -19,18 +19,18 @@ The order of what the app promotes is fixed: **wear what you own first, fill a r
 | What | Why |
 | --- | --- |
 | [Node.js](https://nodejs.org) 20.19.4 or newer (22.13+ or 24.3+ also fine) | Runs the development server on your computer. `npm` refuses to install on an older Node |
-| [Ollama](https://ollama.com) with the model `gemma4:12b` | Gemma looks at the clothing photos, on your own computer. Photos never leave it. Needs about 8 GB of disk and a computer with 16 GB of RAM or more |
+| An [OpenAI API key](https://platform.openai.com/api-keys) | An OpenAI vision model looks at the clothing photos. The photos are sent to OpenAI, and each scan costs a small amount |
 | [Expo Go for **SDK 57**](https://expo.dev/go?sdkVersion=57&platform=android&device=true) on a phone | Shows the app on the phone, without building or installing it. Tested on Android. The Play Store offers only the newest Expo Go, which is for a newer SDK and will refuse to open this project: install SDK 57 from the link, and turn off auto-update for Expo Go |
 | Phone and computer on the same Wi-Fi | The phone loads the app, and sends photos for tagging, to your computer |
 
-No API key and no account are needed.
+The key stays on your computer, in the development server. It is never sent to the phone.
 
 ## Run it
 
-1. Install Ollama, download the model once and keep the Ollama app running:
+1. Put your key in a file called `.env` in the project folder. Never commit it:
 
    ```bash
-   ollama pull gemma4:12b
+   LLM_API_KEY=sk-...
    ```
 
 2. Install the packages exactly as locked:
@@ -48,7 +48,7 @@ No API key and no account are needed.
    ```
 
 4. Open Expo Go on the phone and scan the QR code from the terminal.
-
+[.npmrc](.npmrc)
 ## How it works
 
 ```
@@ -58,14 +58,14 @@ camera → photo saved on the phone
 photo  ──── POST /api/tag ────────→ Expo dev server (API route)
                                          │
                                          ▼
-                                    Ollama · gemma4:12b
+                                    OpenAI · gpt-4o-mini
                                          │
 tags   ←──────────────────────────── JSON in a fixed shape
 saved on the phone (AsyncStorage)
 ```
 
-- **Why the photo goes through the dev server:** on the phone, `localhost` is the phone itself, so it cannot reach Ollama directly. It can reach the dev server it already loads the app from, so an API route there passes the photo on.
-- **Fixed word lists:** the model may only answer with words from fixed lists (for example 20 colours). Ollama enforces this with a JSON schema, so "navy", "Navy Blue" and "dark blue" never become three colours.
+- **Why the photo goes through the dev server:** on the phone, `localhost` is the phone itself, so it should not hold the OpenAI key. It talks to the dev server it already loads the app from, and an API route there passes the photo on with the key.
+- **Fixed word lists:** the model may only answer with words from fixed lists (for example 20 colours). OpenAI enforces this with a JSON schema, so "navy", "Navy Blue" and "dark blue" never become three colours.
 - **Everything stays on the phone:** pieces, wears and photos are stored on the device. There is no account and no server database.
 - **Wear statistics are calculated, not stored:** "Worn 3× · 12 days ago" is worked out from the list of wears each time, so it can never disagree with them.
 
@@ -84,7 +84,7 @@ src/
     wear-stats.ts         how often and how long ago something was worn
     theme.ts              colours
   server/
-    read-garment.ts       the call to Gemma through Ollama
+    read-garment.ts       the call to OpenAI
   shared/
     garment.ts            the tag shape and word lists, used by both sides
   storage/

@@ -1,12 +1,12 @@
 import { type GarmentTags, TAG_SCHEMA } from "@/shared/garment";
 
-// Gemma 4 12B looks at the photo, on this Mac, through Ollama. The photo
-// never leaves the machine. Needs the Ollama app running and
-// `ollama pull gemma4:12b` done once (the same model Happy Habits Buddy uses).
-const OLLAMA_URL = "http://localhost:11434/api/chat";
+// An OpenAI vision model looks at the photo. The photo is sent to OpenAI.
+// Needs LLM_API_KEY in .env (read only here on the server, never
+// shipped to the phone because the name has no EXPO_PUBLIC_ prefix).
+const OPENAI_URL = "https://api.llmhub.infs.ai/v1/chat/completions";
 // Each pipeline step names its own model, so one step can be switched
 // without touching the others. Outfit matching will get its own setting.
-const RECOGNITION_MODEL = "gemma4:12b";
+const RECOGNITION_MODEL = "best-chat";
 
 // Adapted from wardrowbe's clothing_analysis prompt. The word lists are not
 // repeated here: the schema already limits every answer to them.
@@ -24,34 +24,45 @@ Look at the MAIN piece of clothing in the photo and describe only that piece.
 Reply with JSON only, matching this schema:
 ${JSON.stringify(TAG_SCHEMA)}`;
 
-type OllamaResponse = {
-  message: { content: string };
-  done_reason: string;
+type OpenAIResponse = {
+  choices: { finish_reason: string; message: { content: string | null; refusal: string | null } }[];
 };
 
 export async function readGarment(photoBase64: string): Promise<GarmentTags> {
-  const response = await fetch(OLLAMA_URL, {
+  const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey) throw new Error("LLM_API_KEY is missing. Put it in .env and restart the dev server.");
+
+  const response = await fetch(OPENAI_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: RECOGNITION_MODEL,
-      stream: false,
-      think: false, // same reason as in Happy Habits Buddy: thinking runs past Expo's 30 s timeout
-      format: TAG_SCHEMA,
-      options: { temperature: 0 }, // the same photo should get the same tags
+      temperature: 0, // the same photo should get the same tags
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "garment_tags", strict: true, schema: TAG_SCHEMA },
+      },
       messages: [
         { role: "system", content: INSTRUCTIONS },
-        { role: "user", content: "Tag this piece.", images: [photoBase64] },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Tag this piece." },
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${photoBase64}` } },
+          ],
+        },
       ],
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama failed (${response.status}): ${await response.text()}`);
+    throw new Error(`OpenAI failed (${response.status}): ${await response.text()}`);
   }
-  const data = (await response.json()) as OllamaResponse;
-  if (data.done_reason !== "stop") {
-    throw new Error(`Gemma stopped early: ${data.done_reason}`);
+  const { choices } = (await response.json()) as OpenAIResponse;
+  const { finish_reason, message } = choices[0];
+  if (message.refusal) throw new Error(`OpenAI refused: ${message.refusal}`);
+  if (finish_reason !== "stop" || message.content === null) {
+    throw new Error(`OpenAI stopped early: ${finish_reason}`);
   }
-  return JSON.parse(data.message.content) as GarmentTags;
+  return JSON.parse(message.content) as GarmentTags;
 }

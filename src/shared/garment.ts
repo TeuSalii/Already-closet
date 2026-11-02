@@ -80,11 +80,12 @@ export type GarmentTags = {
   confidence: (typeof CONFIDENCES)[number];
 };
 
-// The same shape as GarmentTags, written as JSON Schema. Ollama uses it to
+// The same shape as GarmentTags, written as JSON Schema. OpenAI uses it to
 // force the model's reply into exactly this shape, so the server does not
 // have to repair or second-guess what comes back.
 export const TAG_SCHEMA = {
   type: "object",
+  additionalProperties: false, // OpenAI strict mode requires this
   properties: {
     label: { type: "string" },
     type: { type: "string", enum: TYPES },
