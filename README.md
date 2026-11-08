@@ -65,6 +65,7 @@ saved on the phone (AsyncStorage)
 
 - **Why the photo goes through the dev server:** on the phone, `localhost` is the phone itself, so it should not hold the API key. It talks to the dev server it already loads the app from, and an API route there passes the photo on with the key.
 - **Fixed word lists:** the model may only answer with words from fixed lists (for example 20 colours). The API enforces this with a JSON schema, so "navy", "Navy Blue" and "dark blue" never become three colours.
+- **Only the garment is sent:** after a photo is taken or a screenshot chosen, you draw around the piece (or frame it). Everything outside the line is turned white on the phone, so backgrounds, rooms and faces never reach the model.
 - **Everything stays on the phone:** pieces and photos are stored on the device. There is no account and no server database.
 
 ## Project layout
@@ -74,16 +75,21 @@ src/
   app/                    screens (every file is a route, Expo Router)
     index.tsx             the closet grid
     piece/[id].tsx        one piece: check and change labels, origin, retake, remove
+    wish.tsx              the wish check: something you want → the closest pieces you own
+    cut.tsx               cut out the garment: draw around it or frame it
+    secondhand.tsx        wishes saved to look for second-hand (labels only, no images)
     api/tag+api.ts        the API route that runs on your computer
   client/                 code that runs on the phone
     closet-context.tsx    the shared closet state for all screens
-    add-piece.ts          camera, saving photos, asking for tags
+    add-piece.ts          camera and photo library, saving photos, asking for tags
+    cut-out.ts            shrinks the picture, whitens everything outside the line
     label-editor.tsx      the AI labels, with "please check", to confirm or change
     theme.ts              colours
   server/
     read-garment.ts       the call to LLM Hub
   shared/
     garment.ts            the tag shape and word lists, used by both sides
+    closest.ts            which owned pieces are closest to a wish (rule-based, on labels)
   storage/
     closet.ts             what is saved on the phone
 ```

@@ -9,6 +9,9 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="index" options={{ title: "My closet" }} />
         <Stack.Screen name="piece/[id]" options={{ title: "" }} />
+        <Stack.Screen name="wish" options={{ title: "Wish check" }} />
+        <Stack.Screen name="cut" options={{ title: "Cut out" }} />
+        <Stack.Screen name="secondhand" options={{ title: "Second-hand list" }} />
       </Stack>
     </ClosetProvider>
   );

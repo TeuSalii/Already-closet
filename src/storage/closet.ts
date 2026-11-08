@@ -36,3 +36,12 @@ async function load<T>(key: string): Promise<T[]> {
 
 export const loadPieces = () => load<Piece>(PIECES_KEY);
 export const savePieces = (pieces: Piece[]) => AsyncStorage.setItem(PIECES_KEY, JSON.stringify(pieces));
+
+// A wish saved to look for second-hand (concept v3, "Act"). Labels only,
+// never the image: the image may show someone else (risk R6).
+export type SavedWish = { id: string; tags: GarmentTags; savedAt: string };
+
+const WISHES_KEY = "secondhand:v1";
+
+export const loadWishes = () => load<SavedWish>(WISHES_KEY);
+export const saveWishes = (wishes: SavedWish[]) => AsyncStorage.setItem(WISHES_KEY, JSON.stringify(wishes));

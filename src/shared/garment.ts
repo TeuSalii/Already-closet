@@ -106,6 +106,20 @@ export function fieldsToCheck(tags: GarmentTags, checked: readonly Field[] = [])
   return CHECK_WHEN_LOW.filter((field) => !checked.includes(field));
 }
 
+// Changes one label. A changed label counts as checked: the person looked.
+export function changeLabel<F extends keyof GarmentTags>(
+  tags: GarmentTags,
+  checked: readonly Field[] = [],
+  field: F,
+  value: GarmentTags[F],
+): { tags: GarmentTags; checked: Field[] } {
+  const isField = (FIELD_NAMES as readonly string[]).includes(field);
+  return {
+    tags: { ...tags, [field]: value },
+    checked: isField && !checked.includes(field as Field) ? [...checked, field as Field] : [...checked],
+  };
+}
+
 // The same shape as GarmentTags, written as JSON Schema. LLM Hub uses it to
 // force the model's reply into exactly this shape, so the server does not
 // have to repair or second-guess what comes back.

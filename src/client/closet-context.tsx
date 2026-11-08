@@ -2,8 +2,17 @@ import { File } from "expo-file-system";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 import { capture, readPhoto } from "@/client/add-piece";
-import { FIELD_NAMES, type Field, type GarmentTags } from "@/shared/garment";
-import { loadPieces, type Origin, type Piece, type PieceStatus, savePieces } from "@/storage/closet";
+import { changeLabel, FIELD_NAMES, type GarmentTags } from "@/shared/garment";
+import {
+  loadPieces,
+  loadWishes,
+  type Origin,
+  type Piece,
+  type PieceStatus,
+  savePieces,
+  type SavedWish,
+  saveWishes,
+} from "@/storage/closet";
 
 // The closet as shared state. Two screens need the same pieces (closet,
 // piece). Kept in one screen, the other would see a stale copy. A context
@@ -20,6 +29,13 @@ type Closet = {
   confirmLabels: (id: string) => void; // "the labels are right": all checked
   retake: (id: string) => Promise<void>; // a new photo, read from scratch
   removePiece: (id: string) => void;
+
+  // The second-hand list: wishes nothing owned answered, to look for
+  // second-hand instead of new.
+  wishes: SavedWish[];
+  saveWish: (tags: GarmentTags) => void;
+  removeWish: (id: string) => void;
+  clearWishes: () => void;
 };
 
 const ClosetContext = createContext<Closet | null>(null);
@@ -33,10 +49,16 @@ export function useCloset(): Closet {
 export function ClosetProvider({ children }: { children: ReactNode }) {
   // null while loading, so an empty list is never saved over a full one.
   const [pieces, setPieces] = useState<Piece[] | null>(null);
+  const [wishes, setWishes] = useState<SavedWish[] | null>(null);
 
   useEffect(() => {
     loadPieces().then(setPieces);
+    loadWishes().then(setWishes);
   }, []);
+
+  useEffect(() => {
+    if (wishes !== null) saveWishes(wishes);
+  }, [wishes]);
 
   // Whatever changes a list, it is saved. One place, so it is never forgotten.
   useEffect(() => {
@@ -66,7 +88,7 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  if (pieces === null) return null;
+  if (pieces === null || wishes === null) return null;
 
   const closet: Closet = {
     pieces,
@@ -91,13 +113,7 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     setLabel(id, field, value) {
       update(id, (piece) => {
         if (piece.status !== "read") return piece;
-        const checked = piece.checked ?? [];
-        const isField = (FIELD_NAMES as string[]).includes(field);
-        return {
-          ...piece,
-          tags: { ...piece.tags, [field]: value },
-          checked: isField && !checked.includes(field as Field) ? [...checked, field as Field] : checked,
-        };
+        return { ...piece, ...changeLabel(piece.tags, piece.checked, field, value) };
       });
     },
 
@@ -121,6 +137,21 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
       const photo = pieces.find((piece) => piece.id === id)?.photo;
       setPieces((current) => current!.filter((piece) => piece.id !== id));
       if (photo !== undefined) deletePhoto(photo);
+    },
+
+    wishes,
+
+    saveWish(tags) {
+      const wish: SavedWish = { id: Date.now().toString(36), tags, savedAt: new Date().toISOString() };
+      setWishes((current) => [wish, ...current!]);
+    },
+
+    removeWish(id) {
+      setWishes((current) => current!.filter((wish) => wish.id !== id));
+    },
+
+    clearWishes() {
+      setWishes([]);
     },
   };
 

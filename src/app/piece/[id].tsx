@@ -38,7 +38,7 @@ export default function PieceScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Image source={piece.photo} style={styles.photo} contentFit="cover" />
+      <Image source={piece.photo} style={styles.photo} contentFit="contain" />
 
       {piece.status === "reading" && (
         <View style={styles.row}>

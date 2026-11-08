@@ -11,7 +11,7 @@ import type { Piece } from "@/storage/closet";
 // The closet: everything you already own, as a grid.
 export default function Closet() {
   const insets = useSafeAreaInsets();
-  const { pieces, addPiece, readAgain } = useCloset();
+  const { pieces, addPiece, readAgain, wishes } = useCloset();
   const secondhand = pieces.filter((piece) => piece.origin === "secondhand").length;
 
   async function add() {
@@ -35,20 +35,31 @@ export default function Closet() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <Text style={styles.count}>
-            {pieces.length === 0
-              ? "Photograph a piece you already own to start."
-              : `${pieces.length} ${pieces.length === 1 ? "piece" : "pieces"} you already own` +
-                (secondhand > 0 ? ` · ${secondhand} second-hand` : "")}
-          </Text>
+          <View style={styles.header}>
+            <Text style={styles.count}>
+              {pieces.length === 0
+                ? "Photograph a piece you already own to start."
+                : `${pieces.length} ${pieces.length === 1 ? "piece" : "pieces"} you already own` +
+                  (secondhand > 0 ? ` · ${secondhand} second-hand` : "")}
+            </Text>
+            {wishes.length > 0 && (
+              <Pressable onPress={() => router.push("/secondhand")} accessibilityRole="button">
+                <Text style={styles.link}>To look for second-hand: {wishes.length}</Text>
+              </Pressable>
+            )}
+          </View>
         }
         renderItem={({ item }) => (
           <Tile piece={item} onPress={() => open(item)} />
         )}
       />
       <View style={[styles.actions, { marginBottom: insets.bottom + 16 }]}>
-        <Pressable style={[styles.button, styles.filled]} onPress={() => add().catch(console.warn)}>
-          <Text style={[styles.buttonText, styles.filledText]}>Add a piece</Text>
+        <Pressable style={[styles.button, styles.outlined]} onPress={() => add().catch(console.warn)}>
+          <Text style={styles.buttonText}>Add a piece</Text>
+        </Pressable>
+        {/* The critical flow (concept v3): the main button. */}
+        <Pressable style={[styles.button, styles.filled]} onPress={() => router.push("/wish")}>
+          <Text style={[styles.buttonText, styles.filledText]}>I want something</Text>
         </Pressable>
       </View>
     </View>
@@ -59,7 +70,7 @@ function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
   return (
     <Pressable style={styles.tile} onPress={onPress}>
       <View>
-        <Image source={piece.photo} style={styles.photo} contentFit="cover" />
+        <Image source={piece.photo} style={styles.photo} contentFit="contain" />
         {piece.origin === "secondhand" && <Text style={styles.badge}>Second-hand</Text>}
       </View>
       {piece.status === "reading" && (
@@ -87,7 +98,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.page },
   list: { padding: 16, gap: 16 },
   row: { gap: 16 },
-  count: { fontSize: 15, color: colors.soft, marginBottom: 4 },
+  header: { gap: 4, marginBottom: 4 },
+  count: { fontSize: 15, color: colors.soft },
+  link: { fontSize: 15, fontWeight: "600", color: colors.secondhand, textDecorationLine: "underline" },
   tile: { flex: 1, maxWidth: "50%" },
   photo: { aspectRatio: 1, borderRadius: 12, backgroundColor: colors.photoBack },
   badge: {
@@ -110,6 +123,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 12, marginHorizontal: 16 },
   button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center" },
   filled: { backgroundColor: colors.ink },
-  buttonText: { fontSize: 16, fontWeight: "600" },
+  outlined: { borderWidth: 1.5, borderColor: colors.ink },
+  buttonText: { fontSize: 16, fontWeight: "600", color: colors.ink },
   filledText: { color: colors.page },
 });
