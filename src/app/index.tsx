@@ -11,7 +11,7 @@ import type { Piece } from "@/storage/closet";
 // The closet: everything you already own, as a grid.
 export default function Closet() {
   const insets = useSafeAreaInsets();
-  const { pieces, addPiece, readAgain, wishes } = useCloset();
+  const { pieces, addPiece, wishes } = useCloset();
   const secondhand = pieces.filter((piece) => piece.origin === "secondhand").length;
 
   async function add() {
@@ -21,9 +21,10 @@ export default function Closet() {
     if (id !== null) router.push({ pathname: "/piece/[id]", params: { id } });
   }
 
+  // Always to the piece, also when reading failed: trying again, retaking
+  // and removing are all there.
   function open(piece: Piece) {
-    if (piece.status === "failed") readAgain(piece);
-    else router.push({ pathname: "/piece/[id]", params: { id: piece.id } });
+    router.push({ pathname: "/piece/[id]", params: { id: piece.id } });
   }
 
   return (
@@ -80,7 +81,7 @@ function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
           <Text style={cardText.muted}>Looking at it…</Text>
         </>
       )}
-      {piece.status === "failed" && <Text style={cardText.muted}>Couldn't read it. Tap to try again.</Text>}
+      {piece.status === "failed" && <Text style={cardText.muted}>Couldn't read it. Tap to fix it.</Text>}
       {piece.status === "read" && (
         <>
           <Text style={cardText.label}>{piece.tags.label}</Text>

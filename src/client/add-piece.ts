@@ -1,7 +1,9 @@
 import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import { Alert } from "react-native";
 
 import { cutOut, deleteIfCached } from "@/client/cut-out";
+import { passcodeHeaders, passcodeRejected } from "@/client/passcode-gate";
 import type { GarmentTags, TagRequest, TagResponse } from "@/shared/garment";
 
 // Taking photos and reading them, kept outside the screens so the screens
@@ -21,7 +23,11 @@ export async function pick(source: Source): Promise<string | null> {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
-    throw new Error(source === "camera" ? "Camera permission was not given" : "Photo library permission was not given");
+    Alert.alert(
+      source === "camera" ? "Camera access is off" : "Photo access is off",
+      "You can turn it on for this app in your phone's settings.",
+    );
+    return null;
   }
 
   // No system crop: the cut screen does that, with a free frame or a line.
@@ -44,7 +50,7 @@ export async function capture(fileName: string): Promise<string | null> {
   const folder = new Directory(Paths.document, "closet");
   folder.create({ idempotent: true, intermediates: true });
   const kept = new File(folder, fileName);
-  new File(picked).copy(kept);
+  await new File(picked).copy(kept); // finished before the original goes
   deleteIfCached(picked);
   return kept.uri;
 }
@@ -54,9 +60,10 @@ export async function readPhoto(photoUri: string): Promise<GarmentTags> {
   const body: TagRequest = { photoBase64: await new File(photoUri).base64() };
   const response = await fetch("/api/tag", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...passcodeHeaders() },
     body: JSON.stringify(body),
   });
+  if (response.status === 401) passcodeRejected();
   if (!response.ok) {
     throw new Error(`Tagging failed (${response.status}): ${await response.text()}`);
   }

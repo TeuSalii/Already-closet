@@ -97,7 +97,10 @@ export default function CutScreen() {
   function move(event: GestureResponderEvent) {
     if (fit === null) return;
     const raw = at(event);
-    setPoints((current) => (mode === "frame" ? [current[0], place(raw, fit)] : extend(current, raw, fit)));
+    // Empty if the finger came down before the picture was ready.
+    setPoints((current) =>
+      mode === "frame" && current.length > 0 ? [current[0], place(raw, fit)] : extend(current, raw, fit),
+    );
   }
 
   function release() {
@@ -151,7 +154,7 @@ export default function CutScreen() {
         {failed ? (
           <View style={styles.flex}>
             <Text style={styles.hint}>
-              This picture couldn't be opened for cutting. Use it as it is, or go back and choose another.
+              This picture couldn't be opened for cutting. Go back and choose another.
             </Text>
             <Text style={[styles.hint, styles.muted]} selectable>Details: {failed}</Text>
           </View>
@@ -206,14 +209,6 @@ export default function CutScreen() {
 
       <View style={styles.actions}>
         <Pressable
-          style={[styles.button, styles.outlined, !prepared && !failed && styles.disabled]}
-          onPress={() => (params === null ? router.back() : finish(prepared?.uri ?? params.photo))}
-          disabled={busy || (!prepared && !failed)}
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonText}>Use as it is</Text>
-        </Pressable>
-        <Pressable
           style={[styles.button, styles.filled, (!ready || busy) && styles.disabled]}
           onPress={cut}
           disabled={!ready || busy}
@@ -257,12 +252,11 @@ function boundsOf(points: SkPoint[]) {
   return { width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
 }
 
-// Which picture "Use as it is" or "Cut out" handed on, so cleanup never
-// deletes it, and the shrunk pictures made on the way. Module-level: the
+// The picture "Cut out" handed on, so cleanup never deletes it, and the
+// shrunk pictures made on the way. Module-level: the
 // cleanup runs after the screen is gone.
 let kept: string | null = null;
 const made = new Set<string>();
-
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.page, gap: 12 },
@@ -285,7 +279,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 12, paddingHorizontal: 16 },
   button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center", borderWidth: 1.5 },
   filled: { backgroundColor: colors.ink, borderColor: colors.ink },
-  outlined: { borderColor: colors.ink },
   disabled: { opacity: 0.4 },
   buttonText: { fontSize: 16, fontWeight: "600", color: colors.ink },
   filledText: { color: colors.page },

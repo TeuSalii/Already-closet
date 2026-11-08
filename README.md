@@ -26,10 +26,11 @@ The key stays on your computer, in the development server. It is never sent to t
 
 ## Run it
 
-1. Put your key in a file called `.env` in the project folder. Never commit it:
+1. Put your key and a passcode you make up (10 or more letters and digits) in a file called `.env` in the project folder. Never commit it:
 
    ```bash
    LLM_API_KEY=your-llm-hub-key
+   APP_PASSCODE=your-own-passcode
    ```
 
 2. Install the packages exactly as locked:
@@ -46,7 +47,7 @@ The key stays on your computer, in the development server. It is never sent to t
    npx expo start
    ```
 
-4. Open Expo Go on the phone and scan the QR code from the terminal.
+4. Open Expo Go on the phone and scan the QR code from the terminal. The first time, type the passcode. The phone remembers it.
 
 ## How it works
 
@@ -65,8 +66,16 @@ saved on the phone (AsyncStorage)
 
 - **Why the photo goes through the dev server:** on the phone, `localhost` is the phone itself, so it should not hold the API key. It talks to the dev server it already loads the app from, and an API route there passes the photo on with the key.
 - **Fixed word lists:** the model may only answer with words from fixed lists (for example 20 colours). The API enforces this with a JSON schema, so "navy", "Navy Blue" and "dark blue" never become three colours.
-- **Only the garment is sent:** after a photo is taken or a screenshot chosen, you draw around the piece (or frame it). Everything outside the line is turned white on the phone, so backgrounds, rooms and faces never reach the model.
-- **Everything stays on the phone:** pieces and photos are stored on the device. There is no account and no server database.
+- **Only what you cut out is sent:** after a photo is taken or a screenshot chosen, you draw around the piece (or frame it). This step cannot be skipped. Everything outside the line is turned white on the phone, so backgrounds, rooms and faces outside it do not reach the model.
+- **Pieces and photos stay on the phone:** there is no account and no server database. Only the cut-out is sent to LLM Hub to be tagged. `logs/ai-calls.jsonl` on the computer records each call's tags and timing, never the photo or the key.
+
+## Keeping the key safe
+
+- `.env` and `logs/` are ignored by git. Keep it that way.
+- The AI routes refuse any request without `APP_PASSCODE`, so someone on the same network can't spend your key. The passcode travels unencrypted between phone and computer, so prefer a network you trust, such as a phone hotspot.
+- Do not use `npx expo start --tunnel`: it would put the AI routes on the public internet, behind only the passcode.
+- If the key may have leaked, replace it at LLM Hub and update `.env`. To change the passcode, edit `.env` and restart: the phone asks for the new one.
+- Keep the project outside iCloud Drive or other synced folders, so `.env` is not copied there.
 
 ## Project layout
 
@@ -81,8 +90,10 @@ src/
     coverage.tsx          what is scanned per category, against your own guess
     sweep.tsx             scan one category in one go
     api/tag+api.ts        the API route that runs on your computer
+    dev/test+api.ts       test page for the Mac: a folder of photos through the same AI call
   client/                 code that runs on the phone
     closet-context.tsx    the shared closet state for all screens
+    passcode-gate.tsx     asks for the passcode once, before the app opens
     add-piece.ts          camera and photo library, saving photos, asking for tags
     cut-out.ts            shrinks the picture, whitens everything outside the line
     lasso.ts              the line sticks to the picture's edge and follows it round corners
@@ -92,12 +103,17 @@ src/
     theme.ts              colours
   server/
     read-garment.ts       the call to LLM Hub
+    passcode.ts           refuses requests without APP_PASSCODE
+    photo-request.ts      the first check on every request carrying a photo
+    ai-call-log.ts        one line per AI call in logs/, with secrets removed
   shared/
     garment.ts            the tag shape and word lists, used by both sides
+    photo-size.ts         how far a photo is shrunk before it is sent
     closest.ts            which owned pieces are closest to a wish (rule-based, on labels)
     coverage.ts           "12 of about 30 tops scanned": counts, guesses, wording
   storage/
     closet.ts             what is saved on the phone
+tests/                    automatic tests; no network, no cost
 ```
 
 ## Commands
@@ -105,7 +121,9 @@ src/
 | Command | What it does |
 | --- | --- |
 | `npx expo start` | Starts the development server |
+| `SLOW_AI_MS=30000 npx expo start` | Same, but every scan waits 30 seconds, to test what happens during a read |
 | `npm run typecheck` | Checks the TypeScript types |
+| `npm test` | Runs the automatic tests. Fakes the network, so it is free |
 
 ## Credits
 

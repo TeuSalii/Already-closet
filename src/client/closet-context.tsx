@@ -2,6 +2,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 import { capture, readPhoto } from "@/client/add-piece";
+import { deleteFile } from "@/client/cut-out";
 import type { Estimates } from "@/shared/coverage";
 import { type Category, changeLabel, FIELD_NAMES, type GarmentTags } from "@/shared/garment";
 import {
@@ -36,7 +37,7 @@ type Closet = {
   // The second-hand list: wishes nothing owned answered, to look for
   // second-hand instead of new.
   wishes: SavedWish[];
-  saveWish: (tags: GarmentTags, photo: string) => void; // photo: the wish image, copied out of the cache
+  saveWish: (tags: GarmentTags, photo: string) => Promise<void>; // photo: the wish image, copied out of the cache
   removeWish: (id: string) => void;
   clearWishes: () => void;
 
@@ -83,21 +84,21 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     setPieces((current) => current!.map((piece) => (piece.id === id ? change(piece) : piece)));
   }
 
-  // Sets the status and keeps everything else as it is *now*. This matters:
-  // the person may pick an origin while the model is still reading. If we
-  // built the piece from the version we had when reading started, that
-  // origin would be silently thrown away when the tags arrive.
-  function setStatus(id: string, status: PieceStatus) {
-    update(id, (p) => ({ id: p.id, photo: p.photo, addedAt: p.addedAt, origin: p.origin, ...status }));
-  }
-
   async function read(id: string, photo: string) {
-    setStatus(id, { status: "reading" });
+    // Sets the status and keeps everything else as it is *now*. This matters:
+    // the person may pick an origin while the model is still reading. If we
+    // built the piece from the version we had when reading started, that
+    // origin would be silently thrown away when the tags arrive. And if the
+    // photo was retaken meanwhile, this answer is about the old photo: dropped.
+    const setStatus = (status: PieceStatus) =>
+      update(id, (p) => (p.photo === photo ? { id: p.id, photo: p.photo, addedAt: p.addedAt, origin: p.origin, ...status } : p));
+
+    setStatus({ status: "reading" });
     try {
-      setStatus(id, { status: "read", tags: await readPhoto(photo) });
+      setStatus({ status: "read", tags: await readPhoto(photo) });
     } catch (error) {
       console.warn(error);
-      setStatus(id, { status: "failed" });
+      setStatus({ status: "failed" });
     }
   }
 
@@ -143,23 +144,23 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
       const old = pieces.find((piece) => piece.id === id)?.photo;
       update(id, (piece) => ({ ...piece, photo }));
       read(id, photo);
-      if (old !== undefined) deletePhoto(old);
+      if (old !== undefined) deleteFile(old);
     },
 
     removePiece(id) {
       const photo = pieces.find((piece) => piece.id === id)?.photo;
       setPieces((current) => current!.filter((piece) => piece.id !== id));
-      if (photo !== undefined) deletePhoto(photo);
+      if (photo !== undefined) deleteFile(photo);
     },
 
     wishes,
 
-    saveWish(tags, photo) {
+    async saveWish(tags, photo) {
       const id = Date.now().toString(36);
       const folder = new Directory(Paths.document, "wishes");
       folder.create({ idempotent: true, intermediates: true });
       const kept = new File(folder, `${id}.jpg`);
-      new File(photo).copy(kept);
+      await new File(photo).copy(kept);
       const wish: SavedWish = { id, tags, savedAt: new Date().toISOString(), photo: kept.uri };
       setWishes((current) => [wish, ...current!]);
     },
@@ -167,11 +168,11 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     removeWish(id) {
       const photo = wishes.find((wish) => wish.id === id)?.photo;
       setWishes((current) => current!.filter((wish) => wish.id !== id));
-      if (photo !== undefined) deletePhoto(photo);
+      if (photo !== undefined) deleteFile(photo);
     },
 
     clearWishes() {
-      for (const wish of wishes) if (wish.photo !== undefined) deletePhoto(wish.photo);
+      for (const wish of wishes) if (wish.photo !== undefined) deleteFile(wish.photo);
       setWishes([]);
     },
 
@@ -188,14 +189,4 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
   };
 
   return <ClosetContext.Provider value={closet}>{children}</ClosetContext.Provider>;
-}
-
-// A photo that is gone already is fine: the goal is that it is gone.
-function deletePhoto(uri: string) {
-  try {
-    const file = new File(uri);
-    if (file.exists) file.delete();
-  } catch (error) {
-    console.warn(error);
-  }
 }

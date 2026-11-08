@@ -1,11 +1,11 @@
-import { File } from "expo-file-system";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { pick, readPhoto, type Source } from "@/client/add-piece";
 import { useCloset } from "@/client/closet-context";
+import { deleteFile } from "@/client/cut-out";
 import { LabelEditor } from "@/client/label-editor";
 import { colors } from "@/client/theme";
 import { CoverageBar, EstimatePicker } from "@/client/estimate-picker";
@@ -47,11 +47,12 @@ const scanned = (count: number, category: Category) =>
 export default function WishScreen() {
   const { pieces, saveWish } = useCloset();
   const [state, setState] = useState<Step>({ step: "start" });
+  const saving = useRef(false);
 
   const photo = "photo" in state ? state.photo : null;
   useEffect(() => {
     if (photo === null) return;
-    return () => deleteWishImage(photo); // replaced, ended, or screen closed
+    return () => deleteFile(photo); // replaced, ended, or screen closed
   }, [photo]);
 
   async function begin(source: Source) {
@@ -68,6 +69,21 @@ export default function WishScreen() {
     } catch (error) {
       console.warn(error);
       setState({ step: "failed", photo: picked });
+    }
+  }
+
+  async function end(ending: Ending, tags: GarmentTags, picture: string) {
+    if (saving.current) return; // another tap while copying
+    saving.current = true;
+    try {
+      // The copy is finished first: leaving this step deletes the cache image.
+      if (ending === "saved") await saveWish(tags, picture);
+      setState({ step: "done", ending });
+    } catch (error) {
+      console.warn(error);
+      Alert.alert("Couldn't save the wish", "Please try again.");
+    } finally {
+      saving.current = false;
     }
   }
 
@@ -138,10 +154,7 @@ export default function WishScreen() {
           photo={state.photo}
           pieces={pieces}
           onEdit={() => setState({ ...state, step: "verify" })}
-          onEnd={(ending) => {
-            if (ending === "saved") saveWish(state.tags, state.photo); // copied before the cache image is deleted
-            setState({ step: "done", ending });
-          }}
+          onEnd={(ending) => end(ending, state.tags, state.photo)}
         />
       );
 
@@ -278,15 +291,6 @@ function Button({ text, onPress, filled, disabled }: {
       <Text style={[styles.buttonText, filled && styles.filledText]}>{text}</Text>
     </Pressable>
   );
-}
-
-function deleteWishImage(uri: string) {
-  try {
-    const file = new File(uri);
-    if (file.exists) file.delete();
-  } catch (error) {
-    console.warn(error);
-  }
 }
 
 const styles = StyleSheet.create({

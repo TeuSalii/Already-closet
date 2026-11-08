@@ -121,8 +121,8 @@ export function changeLabel<F extends keyof GarmentTags>(
 }
 
 // The same shape as GarmentTags, written as JSON Schema. LLM Hub uses it to
-// force the model's reply into exactly this shape, so the server does not
-// have to repair or second-guess what comes back.
+// force the model's reply into exactly this shape; isGarmentTags() below
+// checks that it did, before anything is saved.
 export const TAG_SCHEMA = {
   type: "object",
   additionalProperties: false, // strict JSON schema mode requires this
@@ -139,6 +139,29 @@ export const TAG_SCHEMA = {
   },
   required: ["label", "type", "colors", "pattern", "material", "season", "formality", "style", "confidence"],
 } as const;
+
+const isOneOf = (words: readonly string[], value: unknown) => typeof value === "string" && words.includes(value);
+
+// "best-chat" is an alias: the model behind it can change, and a reply of the
+// wrong shape, once saved, would crash the screens every time they open.
+export function isGarmentTags(value: unknown): value is GarmentTags {
+  if (typeof value !== "object" || value === null) return false;
+  const tags = value as Record<string, unknown>;
+  const { minItems, maxItems } = TAG_SCHEMA.properties.colors;
+  return (
+    typeof tags.label === "string" &&
+    tags.label.trim() !== "" &&
+    Array.isArray(tags.colors) &&
+    tags.colors.length >= minItems &&
+    tags.colors.length <= maxItems &&
+    tags.colors.every((color) => isOneOf(COLORS, color)) &&
+    FIELD_NAMES.every((field) => field === "colors" || isOneOf(FIELDS[field], tags[field])) &&
+    isOneOf(CONFIDENCES, tags.confidence)
+  );
+}
+
+// Sent with every request to the routes that spend the key (server/passcode.ts).
+export const PASSCODE_HEADER = "x-closet-passcode";
 
 // POST /api/tag
 export type TagRequest = { photoBase64: string };

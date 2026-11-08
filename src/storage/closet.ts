@@ -35,7 +35,12 @@ async function load<T>(key: string): Promise<T[]> {
   return raw === null ? [] : (JSON.parse(raw) as T[]);
 }
 
-export const loadPieces = () => load<Piece>(PIECES_KEY);
+// Nothing is still reading when the app starts. A piece saved as "reading"
+// lost its answer when the app closed, and would show a spinner forever.
+export const interruptedReadsFailed = (pieces: Piece[]): Piece[] =>
+  pieces.map((piece) => (piece.status === "reading" ? { ...piece, status: "failed" } : piece));
+
+export const loadPieces = () => load<Piece>(PIECES_KEY).then(interruptedReadsFailed);
 export const savePieces = (pieces: Piece[]) => AsyncStorage.setItem(PIECES_KEY, JSON.stringify(pieces));
 
 // A wish saved to look for second-hand (concept v3, "Act"). Its photo is
@@ -47,6 +52,13 @@ const WISHES_KEY = "secondhand:v1";
 
 export const loadWishes = () => load<SavedWish>(WISHES_KEY);
 export const saveWishes = (wishes: SavedWish[]) => AsyncStorage.setItem(WISHES_KEY, JSON.stringify(wishes));
+
+// The passcode for the dev server, typed once on this phone.
+const PASSCODE_KEY = "passcode:v1";
+
+export const loadPasscode = () => AsyncStorage.getItem(PASSCODE_KEY);
+export const savePasscode = (passcode: string) => AsyncStorage.setItem(PASSCODE_KEY, passcode);
+export const forgetPasscode = () => AsyncStorage.removeItem(PASSCODE_KEY);
 
 // The person's own guess of how many pieces they own per category.
 const ESTIMATES_KEY = "estimates:v1";

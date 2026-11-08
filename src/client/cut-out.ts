@@ -3,14 +3,14 @@ import { File, Paths } from "expo-file-system";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router } from "expo-router";
 
+import { JPEG_QUALITY, MAX_SIDE } from "@/shared/photo-size";
+
 // Cutting a picture down to the one garment, with a finger: drawn around
 // (lasso) or framed. Everything outside the line becomes white, on the
 // phone, before anything is sent to the model. So a background, a room or
 // the face of whoever wears the piece never leaves the phone (concept v3,
-// risks R6 and R7).
+// risks R6 and R7). There is deliberately no way to skip this step.
 
-// Big enough for the model and the screens, small enough to cut quickly.
-const MAX_SIDE = 1600;
 const PADDING = 0.03; // a little white around the cut-out, as a share of its size
 
 // Makes the picture a size the phone can cut without trouble, and writes
@@ -21,13 +21,13 @@ export async function shrink(uri: string, width: number, height: number): Promis
     context.resize(width >= height ? { width: MAX_SIDE } : { height: MAX_SIDE });
   }
   const image = await context.renderAsync();
-  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: JPEG_QUALITY });
   return saved.uri;
 }
 
 // The hand-off to the cut screen. It is a screen of its own (it needs the
 // whole display), but callers just await the result: the cut picture's uri,
-// the picture unchanged ("use as it is"), or null if the person went back.
+// or null if the person went back.
 let pending: ((uri: string | null) => void) | null = null;
 
 // The picture to cut. Handed over here, not as a route parameter: in Expo
@@ -113,8 +113,12 @@ export async function renderCutout(image: SkImage, outline: SkPoint[]): Promise<
 // once the final one exists. Only files in the app's own cache: a file the
 // app does not own is never touched.
 export function deleteIfCached(uri: string) {
+  if (uri.startsWith(Paths.cache.uri)) deleteFile(uri);
+}
+
+// A photo that is gone already is fine: the goal is that it is gone.
+export function deleteFile(uri: string) {
   try {
-    if (!uri.startsWith(Paths.cache.uri)) return;
     const file = new File(uri);
     if (file.exists) file.delete();
   } catch (error) {
