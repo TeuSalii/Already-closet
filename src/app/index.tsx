@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCloset } from "@/client/closet-context";
 import { colors } from "@/client/theme";
+import { fieldsToCheck } from "@/shared/garment";
 import type { Piece } from "@/storage/closet";
 
 // The closet: everything you already own, as a grid.
@@ -36,7 +37,7 @@ export default function Closet() {
         ListHeaderComponent={
           <Text style={styles.count}>
             {pieces.length === 0
-              ? "Start with what you're wearing right now."
+              ? "Photograph a piece you already own to start."
               : `${pieces.length} ${pieces.length === 1 ? "piece" : "pieces"} you already own` +
                 (secondhand > 0 ? ` · ${secondhand} second-hand` : "")}
           </Text>
@@ -75,6 +76,7 @@ function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
       {piece.status === "read" && (
         <View style={styles.caption}>
           <Text style={styles.label}>{piece.tags.label}</Text>
+          {fieldsToCheck(piece.tags, piece.checked).length > 0 && <Text style={styles.check}>Please check</Text>}
         </View>
       )}
     </Pressable>
@@ -104,6 +106,7 @@ const styles = StyleSheet.create({
   caption: { paddingTop: 8, gap: 2 },
   label: { fontSize: 15, fontWeight: "600", color: colors.ink },
   muted: { fontSize: 13, color: colors.muted },
+  check: { fontSize: 13, fontWeight: "600", color: colors.check },
   actions: { flexDirection: "row", gap: 12, marginHorizontal: 16 },
   button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center" },
   filled: { backgroundColor: colors.ink },

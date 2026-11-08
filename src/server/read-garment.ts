@@ -1,9 +1,9 @@
 import { type GarmentTags, TAG_SCHEMA } from "@/shared/garment";
 
-// An OpenAI vision model looks at the photo. The photo is sent to OpenAI.
+// A vision model on LLM Hub looks at the photo. The photo is sent to LLM Hub.
 // Needs LLM_API_KEY in .env (read only here on the server, never
 // shipped to the phone because the name has no EXPO_PUBLIC_ prefix).
-const OPENAI_URL = "https://api.llmhub.infs.ai/v1/chat/completions";
+const LLM_HUB_URL = "https://api.llmhub.infs.ai/v1/chat/completions";
 // Each pipeline step names its own model, so one step can be switched
 // without touching the others. Outfit matching will get its own setting.
 const RECOGNITION_MODEL = "best-chat";
@@ -24,7 +24,7 @@ Look at the MAIN piece of clothing in the photo and describe only that piece.
 Reply with JSON only, matching this schema:
 ${JSON.stringify(TAG_SCHEMA)}`;
 
-type OpenAIResponse = {
+type ChatResponse = {
   choices: { finish_reason: string; message: { content: string | null; refusal: string | null } }[];
 };
 
@@ -32,7 +32,7 @@ export async function readGarment(photoBase64: string): Promise<GarmentTags> {
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) throw new Error("LLM_API_KEY is missing. Put it in .env and restart the dev server.");
 
-  const response = await fetch(OPENAI_URL, {
+  const response = await fetch(LLM_HUB_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -56,13 +56,13 @@ export async function readGarment(photoBase64: string): Promise<GarmentTags> {
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI failed (${response.status}): ${await response.text()}`);
+    throw new Error(`LLM Hub failed (${response.status}): ${await response.text()}`);
   }
-  const { choices } = (await response.json()) as OpenAIResponse;
+  const { choices } = (await response.json()) as ChatResponse;
   const { finish_reason, message } = choices[0];
-  if (message.refusal) throw new Error(`OpenAI refused: ${message.refusal}`);
+  if (message.refusal) throw new Error(`The model refused: ${message.refusal}`);
   if (finish_reason !== "stop" || message.content === null) {
-    throw new Error(`OpenAI stopped early: ${finish_reason}`);
+    throw new Error(`The model stopped early: ${finish_reason}`);
   }
   return JSON.parse(message.content) as GarmentTags;
 }

@@ -1,6 +1,8 @@
+import { File } from "expo-file-system";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 import { capture, readPhoto } from "@/client/add-piece";
+import { FIELD_NAMES, type Field, type GarmentTags } from "@/shared/garment";
 import { loadPieces, type Origin, type Piece, type PieceStatus, savePieces } from "@/storage/closet";
 
 // The closet as shared state. Two screens need the same pieces (closet,
@@ -13,6 +15,11 @@ type Closet = {
   addPiece: () => Promise<string | null>; // the new piece's id, or null if cancelled
   readAgain: (piece: Piece) => void;
   setOrigin: (id: string, origin: Origin) => void;
+  // Changes one label. A changed label counts as checked.
+  setLabel: <F extends keyof GarmentTags>(id: string, field: F, value: GarmentTags[F]) => void;
+  confirmLabels: (id: string) => void; // "the labels are right": all checked
+  retake: (id: string) => Promise<void>; // a new photo, read from scratch
+  removePiece: (id: string) => void;
 };
 
 const ClosetContext = createContext<Closet | null>(null);
@@ -80,7 +87,52 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     setOrigin(id, origin) {
       update(id, (piece) => ({ ...piece, origin }));
     },
+
+    setLabel(id, field, value) {
+      update(id, (piece) => {
+        if (piece.status !== "read") return piece;
+        const checked = piece.checked ?? [];
+        const isField = (FIELD_NAMES as string[]).includes(field);
+        return {
+          ...piece,
+          tags: { ...piece.tags, [field]: value },
+          checked: isField && !checked.includes(field as Field) ? [...checked, field as Field] : checked,
+        };
+      });
+    },
+
+    confirmLabels(id) {
+      update(id, (piece) => (piece.status === "read" ? { ...piece, checked: [...FIELD_NAMES] } : piece));
+    },
+
+    // The recovery path from the concept: a bad photo is replaced, not
+    // corrected field by field. A new file name, so no screen shows the old
+    // photo from its image cache.
+    async retake(id) {
+      const photo = await capture(`${id}-${Date.now().toString(36)}.jpg`);
+      if (photo === null) return;
+      const old = pieces.find((piece) => piece.id === id)?.photo;
+      update(id, (piece) => ({ ...piece, photo }));
+      read(id, photo);
+      if (old !== undefined) deletePhoto(old);
+    },
+
+    removePiece(id) {
+      const photo = pieces.find((piece) => piece.id === id)?.photo;
+      setPieces((current) => current!.filter((piece) => piece.id !== id));
+      if (photo !== undefined) deletePhoto(photo);
+    },
   };
 
   return <ClosetContext.Provider value={closet}>{children}</ClosetContext.Provider>;
+}
+
+// A photo that is gone already is fine: the goal is that it is gone.
+function deletePhoto(uri: string) {
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch (error) {
+    console.warn(error);
+  }
 }

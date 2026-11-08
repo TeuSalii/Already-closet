@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { GarmentTags } from "@/shared/garment";
+import type { Field, GarmentTags } from "@/shared/garment";
 
 // Everything the app remembers, kept on the phone as JSON. Photos are files
 // (see add-piece.ts); here we only keep where each file is.
@@ -16,7 +16,10 @@ type PieceBase = { id: string; photo: string; addedAt: string; origin?: Origin }
 // only once the model has read the photo.
 export type PieceStatus =
   | { status: "reading" }
-  | { status: "read"; tags: GarmentTags }
+  // `checked`: the labels the person has confirmed or changed. Kept with the
+  // tags, so reading the photo again starts the check over. Missing on
+  // pieces saved before checking existed, which means "none checked".
+  | { status: "read"; tags: GarmentTags; checked?: Field[] }
   | { status: "failed" };
 
 export type Piece = PieceBase & PieceStatus;

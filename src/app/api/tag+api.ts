@@ -2,7 +2,7 @@ import { readGarment } from "@/server/read-garment";
 import type { TagRequest, TagResponse } from "@/shared/garment";
 
 // POST /api/tag  body: TagRequest  →  TagResponse
-// Runs on the Mac, inside the Expo dev server. This keeps the OpenAI key on
+// Runs on the Mac, inside the Expo dev server. This keeps the LLM Hub key on
 // the server: the phone only talks to the dev server it already loads the
 // app from, and this route is the bridge.
 export async function POST(request: Request) {
