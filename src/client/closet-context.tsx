@@ -1,14 +1,17 @@
-import { File } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 import { capture, readPhoto } from "@/client/add-piece";
-import { changeLabel, FIELD_NAMES, type GarmentTags } from "@/shared/garment";
+import type { Estimates } from "@/shared/coverage";
+import { type Category, changeLabel, FIELD_NAMES, type GarmentTags } from "@/shared/garment";
 import {
+  loadEstimates,
   loadPieces,
   loadWishes,
   type Origin,
   type Piece,
   type PieceStatus,
+  saveEstimates,
   savePieces,
   type SavedWish,
   saveWishes,
@@ -33,9 +36,13 @@ type Closet = {
   // The second-hand list: wishes nothing owned answered, to look for
   // second-hand instead of new.
   wishes: SavedWish[];
-  saveWish: (tags: GarmentTags) => void;
+  saveWish: (tags: GarmentTags, photo: string) => void; // photo: the wish image, copied out of the cache
   removeWish: (id: string) => void;
   clearWishes: () => void;
+
+  // How many pieces the person thinks they own, per category.
+  estimates: Estimates;
+  setEstimate: (category: Category, estimate: number | undefined) => void; // undefined: "not sure"
 };
 
 const ClosetContext = createContext<Closet | null>(null);
@@ -50,11 +57,17 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
   // null while loading, so an empty list is never saved over a full one.
   const [pieces, setPieces] = useState<Piece[] | null>(null);
   const [wishes, setWishes] = useState<SavedWish[] | null>(null);
+  const [estimates, setEstimates] = useState<Estimates | null>(null);
 
   useEffect(() => {
     loadPieces().then(setPieces);
     loadWishes().then(setWishes);
+    loadEstimates().then(setEstimates);
   }, []);
+
+  useEffect(() => {
+    if (estimates !== null) saveEstimates(estimates);
+  }, [estimates]);
 
   useEffect(() => {
     if (wishes !== null) saveWishes(wishes);
@@ -88,7 +101,7 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  if (pieces === null || wishes === null) return null;
+  if (pieces === null || wishes === null || estimates === null) return null;
 
   const closet: Closet = {
     pieces,
@@ -141,17 +154,36 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
 
     wishes,
 
-    saveWish(tags) {
-      const wish: SavedWish = { id: Date.now().toString(36), tags, savedAt: new Date().toISOString() };
+    saveWish(tags, photo) {
+      const id = Date.now().toString(36);
+      const folder = new Directory(Paths.document, "wishes");
+      folder.create({ idempotent: true, intermediates: true });
+      const kept = new File(folder, `${id}.jpg`);
+      new File(photo).copy(kept);
+      const wish: SavedWish = { id, tags, savedAt: new Date().toISOString(), photo: kept.uri };
       setWishes((current) => [wish, ...current!]);
     },
 
     removeWish(id) {
+      const photo = wishes.find((wish) => wish.id === id)?.photo;
       setWishes((current) => current!.filter((wish) => wish.id !== id));
+      if (photo !== undefined) deletePhoto(photo);
     },
 
     clearWishes() {
+      for (const wish of wishes) if (wish.photo !== undefined) deletePhoto(wish.photo);
       setWishes([]);
+    },
+
+    estimates,
+
+    setEstimate(category, estimate) {
+      setEstimates((current) => {
+        const next = { ...current! };
+        if (estimate === undefined) delete next[category];
+        else next[category] = estimate;
+        return next;
+      });
     },
   };
 

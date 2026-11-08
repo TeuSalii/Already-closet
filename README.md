@@ -77,19 +77,25 @@ src/
     piece/[id].tsx        one piece: check and change labels, origin, retake, remove
     wish.tsx              the wish check: something you want → the closest pieces you own
     cut.tsx               cut out the garment: draw around it or frame it
-    secondhand.tsx        wishes saved to look for second-hand (labels only, no images)
+    secondhand.tsx        wishes saved to look for second-hand, as cards like the closet
+    coverage.tsx          what is scanned per category, against your own guess
+    sweep.tsx             scan one category in one go
     api/tag+api.ts        the API route that runs on your computer
   client/                 code that runs on the phone
     closet-context.tsx    the shared closet state for all screens
     add-piece.ts          camera and photo library, saving photos, asking for tags
     cut-out.ts            shrinks the picture, whitens everything outside the line
+    lasso.ts              the line sticks to the picture's edge and follows it round corners
+    card.tsx              the photo card shared by the closet and the second-hand list
     label-editor.tsx      the AI labels, with "please check", to confirm or change
+    estimate-picker.tsx   "About how many tops do you own?" and the coverage bar
     theme.ts              colours
   server/
     read-garment.ts       the call to LLM Hub
   shared/
     garment.ts            the tag shape and word lists, used by both sides
     closest.ts            which owned pieces are closest to a wish (rule-based, on labels)
+    coverage.ts           "12 of about 30 tops scanned": counts, guesses, wording
   storage/
     closet.ts             what is saved on the phone
 ```

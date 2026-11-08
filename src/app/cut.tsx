@@ -1,10 +1,14 @@
 import { Canvas, Group, Image as SkiaImage, Path, Rect, Skia, type SkImage, type SkPoint } from "@shopify/react-native-skia";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { Frame, type LucideIcon, ScissorsLineDashed } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type GestureResponderEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { currentCut, deleteIfCached, prepare, renderCutout, settleCut } from "@/client/cut-out";
+import { RestartIcon } from "@/client/icons";
+import { caughtEdge, close, extend, type LassoPoint, place } from "@/client/lasso";
 import { colors } from "@/client/theme";
 
 // Cut out the garment: draw around it with a finger, or drag a frame.
@@ -13,7 +17,6 @@ import { colors } from "@/client/theme";
 type Mode = "draw" | "frame";
 
 const MIN_SIZE = 40; // on screen, in points: smaller is a slip of the finger
-const MIN_STEP = 3; // skip touch points closer than this: a lighter outline
 
 export default function CutScreen() {
   // Read once: the request belongs to this screen for as long as it is open.
@@ -24,7 +27,7 @@ export default function CutScreen() {
   const [failed, setFailed] = useState<string | null>(params === null ? "No picture was handed to this screen." : null);
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
   const [mode, setMode] = useState<Mode>("draw");
-  const [points, setPoints] = useState<SkPoint[]>([]); // on screen
+  const [points, setPoints] = useState<LassoPoint[]>([]); // on screen; see lasso.ts
   const [drawing, setDrawing] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -81,29 +84,36 @@ export default function CutScreen() {
   const bounds = boundsOf(outline);
   const ready = !drawing && outline.length >= 3 && bounds.width >= MIN_SIZE && bounds.height >= MIN_SIZE;
 
-  function at(event: GestureResponderEvent): SkPoint {
-    const { locationX, locationY } = event.nativeEvent;
-    if (fit === null) return { x: locationX, y: locationY };
-    // Kept on the picture: a line that wanders off it still cuts the picture.
-    return {
-      x: clamp(locationX, fit.x, fit.x + fit.width),
-      y: clamp(locationY, fit.y, fit.y + fit.height),
-    };
-  }
+  // The finger, where it is on screen. The picture's edge is applied by
+  // lasso.ts: off the picture the line stays on it, near the edge it sticks.
+  const at = (event: GestureResponderEvent) => ({ x: event.nativeEvent.locationX, y: event.nativeEvent.locationY });
 
   function start(event: GestureResponderEvent) {
+    if (fit === null) return;
     setDrawing(true);
-    setPoints([at(event)]);
+    setPoints([place(at(event), fit)]);
   }
 
   function move(event: GestureResponderEvent) {
-    const point = at(event);
-    setPoints((current) => {
-      if (mode === "frame") return [current[0], point];
-      const last = current[current.length - 1];
-      return Math.hypot(point.x - last.x, point.y - last.y) < MIN_STEP ? current : [...current, point];
-    });
+    if (fit === null) return;
+    const raw = at(event);
+    setPoints((current) => (mode === "frame" ? [current[0], place(raw, fit)] : extend(current, raw, fit)));
   }
+
+  function release() {
+    setDrawing(false);
+    if (mode === "draw" && fit !== null) setPoints((current) => close(current, fit));
+  }
+
+  // A light tap when the line catches the picture's edge, so the snap is
+  // felt as well as seen.
+  const last = points[points.length - 1];
+  const lastBefore = useRef<LassoPoint | undefined>(undefined);
+  useEffect(() => {
+    if (drawing && caughtEdge(lastBefore.current, last)) Haptics.selectionAsync().catch(() => {});
+    lastBefore.current = last;
+  }, [drawing, last]);
+  const onEdge = drawing && last !== undefined && last.t !== null;
 
   async function cut() {
     if (fit === null) return;
@@ -134,8 +144,8 @@ export default function CutScreen() {
         onMoveShouldSetResponder={() => !busy}
         onResponderGrant={start}
         onResponderMove={move}
-        onResponderRelease={() => setDrawing(false)}
-        onResponderTerminate={() => setDrawing(false)}
+        onResponderRelease={release}
+        onResponderTerminate={release}
         accessibilityLabel="The picture. Draw around the piece you mean."
       >
         {failed ? (
@@ -153,6 +163,13 @@ export default function CutScreen() {
         ) : (
           <Canvas style={styles.flex} pointerEvents="none">
             <SkiaImage image={image} x={fit.x} y={fit.y} width={fit.width} height={fit.height} fit="fill" />
+            {onEdge && (
+              // The edge lights up while the line is stuck to it.
+              <>
+                <Rect x={fit.x} y={fit.y} width={fit.width} height={fit.height} style="stroke" strokeWidth={5} color={colors.ink} />
+                <Rect x={fit.x} y={fit.y} width={fit.width} height={fit.height} style="stroke" strokeWidth={2} color="white" />
+              </>
+            )}
             {shape !== null && ready && (
               // Dims what will be cut away, so the result is visible before cutting.
               <Group clip={shape} invertClip>
@@ -170,9 +187,21 @@ export default function CutScreen() {
       </View>
 
       <View style={styles.modes}>
-        <Chip text="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); }} />
-        <Chip text="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); }} />
-        {points.length > 0 && <Chip text="Start over" chosen={false} onPress={() => setPoints([])} />}
+        {/* Icons only, like a photo editor; the hint above says what the
+            chosen tool does, and each button has a spoken label. */}
+        <Tool icon={ScissorsLineDashed} label="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); }} />
+        <Tool icon={Frame} label="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); }} />
+        <View style={styles.flex} />
+        <Pressable
+          style={[styles.tool, points.length === 0 && styles.disabled]}
+          onPress={() => setPoints([])}
+          disabled={points.length === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Start over"
+          accessibilityState={{ disabled: points.length === 0 }}
+        >
+          <RestartIcon color={colors.ink} />
+        </Pressable>
       </View>
 
       <View style={styles.actions}>
@@ -198,15 +227,21 @@ export default function CutScreen() {
   );
 }
 
-function Chip({ text, chosen, onPress }: { text: string; chosen: boolean; onPress: () => void }) {
+function Tool({ icon: Icon, label, chosen, onPress }: {
+  icon: LucideIcon;
+  label: string;
+  chosen: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
-      style={[styles.chip, chosen && styles.chipChosen]}
+      style={[styles.tool, chosen && styles.toolChosen]}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected: chosen }}
     >
-      <Text style={[styles.chipText, chosen && styles.chipTextChosen]}>{text}</Text>
+      <Icon size={24} color={chosen ? colors.page : colors.ink} strokeWidth={2} />
     </Pressable>
   );
 }
@@ -228,7 +263,6 @@ function boundsOf(points: SkPoint[]) {
 let kept: string | null = null;
 const made = new Set<string>();
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.page, gap: 12 },
@@ -237,11 +271,17 @@ const styles = StyleSheet.create({
   muted: { fontSize: 13, color: colors.muted },
   hint: { fontSize: 15, color: colors.soft, paddingHorizontal: 16, paddingTop: 12, lineHeight: 21 },
   area: { flex: 1, backgroundColor: colors.photoBack },
-  modes: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: colors.line },
-  chipChosen: { backgroundColor: colors.ink, borderColor: colors.ink },
-  chipText: { fontSize: 14, color: colors.ink },
-  chipTextChosen: { color: colors.page },
+  modes: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16 },
+  tool: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  toolChosen: { backgroundColor: colors.ink, borderColor: colors.ink },
   actions: { flexDirection: "row", gap: 12, paddingHorizontal: 16 },
   button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center", borderWidth: 1.5 },
   filled: { backgroundColor: colors.ink, borderColor: colors.ink },

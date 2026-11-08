@@ -12,6 +12,8 @@ export default function RootLayout() {
         <Stack.Screen name="wish" options={{ title: "Wish check" }} />
         <Stack.Screen name="cut" options={{ title: "Cut out" }} />
         <Stack.Screen name="secondhand" options={{ title: "Second-hand list" }} />
+        <Stack.Screen name="coverage" options={{ title: "What's scanned" }} />
+        <Stack.Screen name="sweep" options={{ title: "Scan" }} />
       </Stack>
     </ClosetProvider>
   );

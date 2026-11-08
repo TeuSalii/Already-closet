@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import type { Estimates } from "@/shared/coverage";
 import type { Field, GarmentTags } from "@/shared/garment";
 
 // Everything the app remembers, kept on the phone as JSON. Photos are files
@@ -37,11 +38,21 @@ async function load<T>(key: string): Promise<T[]> {
 export const loadPieces = () => load<Piece>(PIECES_KEY);
 export const savePieces = (pieces: Piece[]) => AsyncStorage.setItem(PIECES_KEY, JSON.stringify(pieces));
 
-// A wish saved to look for second-hand (concept v3, "Act"). Labels only,
-// never the image: the image may show someone else (risk R6).
-export type SavedWish = { id: string; tags: GarmentTags; savedAt: string };
+// A wish saved to look for second-hand (concept v3, "Act"). Its photo is
+// the cut-out of the garment, kept on the phone only while the wish is on
+// the list. Missing on wishes saved before photos were kept.
+export type SavedWish = { id: string; tags: GarmentTags; savedAt: string; photo?: string };
 
 const WISHES_KEY = "secondhand:v1";
 
 export const loadWishes = () => load<SavedWish>(WISHES_KEY);
 export const saveWishes = (wishes: SavedWish[]) => AsyncStorage.setItem(WISHES_KEY, JSON.stringify(wishes));
+
+// The person's own guess of how many pieces they own per category.
+const ESTIMATES_KEY = "estimates:v1";
+
+export async function loadEstimates(): Promise<Estimates> {
+  const raw = await AsyncStorage.getItem(ESTIMATES_KEY);
+  return raw === null ? {} : (JSON.parse(raw) as Estimates);
+}
+export const saveEstimates = (estimates: Estimates) => AsyncStorage.setItem(ESTIMATES_KEY, JSON.stringify(estimates));

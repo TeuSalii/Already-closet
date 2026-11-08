@@ -8,7 +8,9 @@ import { pick, readPhoto, type Source } from "@/client/add-piece";
 import { useCloset } from "@/client/closet-context";
 import { LabelEditor } from "@/client/label-editor";
 import { colors } from "@/client/theme";
+import { CoverageBar, EstimatePicker } from "@/client/estimate-picker";
 import { closestOwned, plural } from "@/shared/closest";
+import { CATEGORY_WORDS, coverageText } from "@/shared/coverage";
 import { type Category, changeLabel, type Field, fieldsToCheck, type GarmentTags } from "@/shared/garment";
 import type { Piece } from "@/storage/closet";
 
@@ -16,9 +18,11 @@ import type { Piece } from "@/storage/closet";
 // closest pieces you already own → you decide. The app shows, the person
 // decides: no "you don't need this", no buy suggestion.
 //
-// The wish image is never saved (risk R6: it may show a friend or an
-// influencer). It stays in the cache while this screen is open and is
-// deleted when the check ends or a new image replaces it.
+// The wish image (risk R6: it may show a friend or an influencer) is cut out
+// to the garment before the model sees it, and stays in the cache while this
+// screen is open. It is deleted when the check ends, unless the wish is saved
+// to the second-hand list: then a copy of the cut-out stays with it, until
+// the wish is removed from the list.
 
 type Step =
   | { step: "start" }
@@ -37,19 +41,11 @@ const ENDINGS: Record<Ending, string> = {
 };
 
 // "your 1 scanned top", "your 5 scanned tops".
-const CATEGORY_WORDS: Record<Category, [one: string, many: string]> = {
-  top: ["top", "tops"],
-  bottom: ["bottom", "bottoms"],
-  dress: ["dress", "dresses"],
-  outerwear: ["jacket or coat", "jackets and coats"],
-  shoes: ["pair of shoes", "pairs of shoes"],
-  accessory: ["accessory", "accessories"],
-};
 const scanned = (count: number, category: Category) =>
   `${count} scanned ${CATEGORY_WORDS[category][count === 1 ? 0 : 1]}`;
 
 export default function WishScreen() {
-  const { pieces, addPiece, saveWish } = useCloset();
+  const { pieces, saveWish } = useCloset();
   const [state, setState] = useState<Step>({ step: "start" });
 
   const photo = "photo" in state ? state.photo : null;
@@ -142,12 +138,8 @@ export default function WishScreen() {
           photo={state.photo}
           pieces={pieces}
           onEdit={() => setState({ ...state, step: "verify" })}
-          // Scenario B: scan the rest of the category, then look again.
-          // The new piece is read in the background; the results update
-          // on their own when its labels arrive.
-          onScanMore={() => addPiece().catch(console.warn)}
           onEnd={(ending) => {
-            if (ending === "saved") saveWish(state.tags);
+            if (ending === "saved") saveWish(state.tags, state.photo); // copied before the cache image is deleted
             setState({ step: "done", ending });
           }}
         />
@@ -159,7 +151,7 @@ export default function WishScreen() {
           <Text style={styles.title}>{ENDINGS[state.ending]}</Text>
           <Text style={styles.body}>
             {state.ending === "saved"
-              ? "Look for it second-hand, instead of new. Only the labels are saved; the wish image has been deleted."
+              ? "Look for it second-hand, instead of new. The cut-out and its labels are kept on this phone until you remove it from the list."
               : "The wish image has been deleted."}
           </Text>
           <View style={styles.gap} />
@@ -170,15 +162,16 @@ export default function WishScreen() {
   }
 }
 
-function Results({ wish, photo, pieces, onEdit, onScanMore, onEnd }: {
+function Results({ wish, photo, pieces, onEdit, onEnd }: {
   wish: GarmentTags;
   photo: string;
   pieces: Piece[];
   onEdit: () => void;
-  onScanMore: () => void;
   onEnd: (ending: Ending) => void;
 }) {
   const result = closestOwned(wish, pieces, (piece) => (piece.status === "read" ? piece.tags : null));
+  const { estimates, setEstimate } = useCloset();
+  const estimate = estimates[result.category];
   const reading = pieces.filter((piece) => piece.status === "reading").length;
   const group = CATEGORY_WORDS[result.category][1];
   const found = result.closest.length > 0;
@@ -193,10 +186,8 @@ function Results({ wish, photo, pieces, onEdit, onScanMore, onEnd }: {
         : result.scanned > 0
           ? `Nothing close among your ${scanned(result.scanned, result.category)}.`
           : `You haven't scanned any ${group} yet.`;
-  const coverage =
-    result.same > 0
-      ? `Among your ${scanned(result.scanned, result.category)}. Pieces you haven't scanned aren't searched.`
-      : "Pieces you haven't scanned aren't searched.";
+  // Coverage beside every result (concept v3, risk R3).
+  const coverage = coverageText(result.category, result.scanned, estimate);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -210,15 +201,35 @@ function Results({ wish, photo, pieces, onEdit, onScanMore, onEnd }: {
 
       <View style={styles.block}>
         <Text style={styles.title}>{headline}</Text>
-        <Text style={styles.muted}>{coverage}</Text>
-        {reading > 0 ? (
+        {result.same > 0 && <Text style={styles.muted}>Among your {scanned(result.scanned, result.category)}.</Text>}
+      </View>
+
+      <View style={styles.coverage}>
+        {coverage !== null && estimate !== undefined ? (
+          <>
+            <Text style={styles.muted}>{coverage}. Pieces you haven't scanned aren't searched.</Text>
+            <CoverageBar scanned={result.scanned} estimate={estimate} />
+          </>
+        ) : (
+          <>
+            <Text style={styles.muted}>Pieces you haven't scanned aren't searched.</Text>
+            <EstimatePicker category={result.category} value={estimate} onChange={(v) => setEstimate(result.category, v)} />
+          </>
+        )}
+        {reading > 0 && (
           <View style={styles.row}>
             <ActivityIndicator size="small" />
             <Text style={styles.muted}>Reading {reading} new {reading === 1 ? "piece" : "pieces"}…</Text>
           </View>
-        ) : (
-          <Pressable onPress={onScanMore} accessibilityRole="button">
-            <Text style={styles.link}>Scan more {group}</Text>
+        )}
+        {/* The category sweep (concept v3, Section 6): offered when a wish
+            gives a reason to. The results update when the new pieces are read. */}
+        {(estimate === undefined || result.scanned < estimate) && (
+          <Pressable
+            onPress={() => router.push({ pathname: "/sweep", params: { category: result.category } })}
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>Scan your {group} now</Text>
           </Pressable>
         )}
       </View>
@@ -292,6 +303,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: "600", color: colors.ink },
   muted: { fontSize: 13, color: colors.muted },
   question: { fontSize: 16, fontWeight: "600", color: colors.ink },
+  coverage: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: colors.photoBack },
   link: { fontSize: 15, fontWeight: "600", color: colors.ink, textDecorationLine: "underline", paddingVertical: 6 },
   match: { flexDirection: "row", alignItems: "center", gap: 12 },
   matchPhoto: { width: 88, height: 88, borderRadius: 12, backgroundColor: colors.photoBack },

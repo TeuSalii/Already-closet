@@ -1,8 +1,8 @@
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Card, cardGrid, cardText } from "@/client/card";
 import { useCloset } from "@/client/closet-context";
 import { colors } from "@/client/theme";
 import { fieldsToCheck } from "@/shared/garment";
@@ -32,8 +32,8 @@ export default function Closet() {
         data={pieces}
         keyExtractor={(piece) => piece.id}
         numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.list}
+        columnWrapperStyle={cardGrid.row}
+        contentContainerStyle={cardGrid.list}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.count}>
@@ -42,6 +42,11 @@ export default function Closet() {
                 : `${pieces.length} ${pieces.length === 1 ? "piece" : "pieces"} you already own` +
                   (secondhand > 0 ? ` · ${secondhand} second-hand` : "")}
             </Text>
+            {pieces.length > 0 && (
+              <Pressable onPress={() => router.push("/coverage")} accessibilityRole="button">
+                <Text style={styles.plainLink}>What's scanned</Text>
+              </Pressable>
+            )}
             {wishes.length > 0 && (
               <Pressable onPress={() => router.push("/secondhand")} accessibilityRole="button">
                 <Text style={styles.link}>To look for second-hand: {wishes.length}</Text>
@@ -68,58 +73,30 @@ export default function Closet() {
 
 function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
   return (
-    <Pressable style={styles.tile} onPress={onPress}>
-      <View>
-        <Image source={piece.photo} style={styles.photo} contentFit="contain" />
-        {piece.origin === "secondhand" && <Text style={styles.badge}>Second-hand</Text>}
-      </View>
+    <Card photo={piece.photo} badge={piece.origin === "secondhand" ? "Second-hand" : undefined} onPress={onPress}>
       {piece.status === "reading" && (
-        <View style={styles.caption}>
+        <>
           <ActivityIndicator size="small" />
-          <Text style={styles.muted}>Looking at it…</Text>
-        </View>
+          <Text style={cardText.muted}>Looking at it…</Text>
+        </>
       )}
-      {piece.status === "failed" && (
-        <View style={styles.caption}>
-          <Text style={styles.muted}>Couldn't read it. Tap to try again.</Text>
-        </View>
-      )}
+      {piece.status === "failed" && <Text style={cardText.muted}>Couldn't read it. Tap to try again.</Text>}
       {piece.status === "read" && (
-        <View style={styles.caption}>
-          <Text style={styles.label}>{piece.tags.label}</Text>
-          {fieldsToCheck(piece.tags, piece.checked).length > 0 && <Text style={styles.check}>Please check</Text>}
-        </View>
+        <>
+          <Text style={cardText.label}>{piece.tags.label}</Text>
+          {fieldsToCheck(piece.tags, piece.checked).length > 0 && <Text style={cardText.check}>Please check</Text>}
+        </>
       )}
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.page },
-  list: { padding: 16, gap: 16 },
-  row: { gap: 16 },
   header: { gap: 4, marginBottom: 4 },
   count: { fontSize: 15, color: colors.soft },
   link: { fontSize: 15, fontWeight: "600", color: colors.secondhand, textDecorationLine: "underline" },
-  tile: { flex: 1, maxWidth: "50%" },
-  photo: { aspectRatio: 1, borderRadius: 12, backgroundColor: colors.photoBack },
-  badge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    overflow: "hidden",
-    backgroundColor: colors.secondhand,
-    color: colors.page,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  caption: { paddingTop: 8, gap: 2 },
-  label: { fontSize: 15, fontWeight: "600", color: colors.ink },
-  muted: { fontSize: 13, color: colors.muted },
-  check: { fontSize: 13, fontWeight: "600", color: colors.check },
+  plainLink: { fontSize: 15, fontWeight: "600", color: colors.ink, textDecorationLine: "underline" },
   actions: { flexDirection: "row", gap: 12, marginHorizontal: 16 },
   button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center" },
   filled: { backgroundColor: colors.ink },
