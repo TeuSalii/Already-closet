@@ -17,6 +17,7 @@ among outfits that already pass the rules, and never invents a piece.**
 | Mens Fashioner: *Spring & Summer Patterns + Color Combinations* (PDF) | 3 colours per outfit, proven pairs, leather and metal matching, shoe colour rules |
 | [Fashionpedia](https://fashionpedia.github.io/home/Fashionpedia_download.html) | Test data only (see Test 3). No outfit or compatibility labels |
 | [Acloset](https://www.acloset.app/it/) | The bar to compare against |
+| [wardrobe-optimization](https://wardrobe-optimization-669a28.pages.ost.ch/) (OST, the project Christoph's rules come from) | More hard rules (H12–H16), seven scores to compare with, and a different search method. See "The other project" below |
 
 ### Things to sort out in the sources
 
@@ -67,6 +68,39 @@ you didn't like one. That's the gap:
 | H9 | Metals match: belt buckle, watch and jewellery are all silver or all gold | Color rules, Spring & Summer |
 | H10 | Every piece is at most one formality step from what the occasion asks for | Dress Codes, `FORMALITIES` order |
 | H11 | Every piece fits the season or the weather | Common sense, Acloset |
+| H12 | Black clothes: black shoes (or white sneakers) and a black belt. No black clothes: no black shoes or belt, except with a navy suit or an outfit of only gray and white | wardrobe-optimization, Spring & Summer |
+| H13 | A base layer, shirt, sweater or dress is worn: no jacket on bare skin | wardrobe-optimization |
+| H14 | No sweater over a flannel shirt | wardrobe-optimization |
+| H15 | A cardigan has a T-shirt (base layer) under it | wardrobe-optimization |
+| H16 | Three upper layers only in winter | wardrobe-optimization ("all top layers only if suitable for winter"), read as "3 layers" since H2 allows no more |
+
+All 16 are in `src/shared/outfit/rules.ts`, each with its number as its id.
+Decisions made while writing them:
+
+- **Colours are compared by their main colour** (the first in `colors`), except
+  H6, which counts all of them. "Black in the outfit" (H12) means a piece
+  whose main colour is black, so a black print on a white tee doesn't count.
+- **A plain "shirt" is treated as a dress shirt** (H5) until the tags say
+  otherwise. That's the stricter reading: no crew-neck over an oxford.
+- **Only a `sweater` with a V-neck passes H5.** A cardigan or hoodie over a
+  dress shirt is dropped.
+- **H4 accepts any `jacket` over a polo**, since `TYPES` doesn't tell a bomber
+  from a parka.
+- **H6 ignores accessories** (belt, bag, hat, socks) and gold and silver, as
+  the PDF says accessories rarely count. Brown is not neutral: brown trousers
+  read as a colour.
+- **A dress sits where a base layer would**, so a cardigan over a dress
+  passes H15.
+- **Bold colours (H7):** red, yellow, orange, pink, purple, green. Muted
+  ones (burgundy, olive) are not bold.
+
+### Rules from wardrobe-optimization not taken (yet)
+
+| Rule there | Why not |
+| --- | --- |
+| All pieces share at least one style | This app tags one style per piece, so it would mean "all pieces the same style": white sneakers (sporty) could never go with jeans (classic). Better as a soft bonus |
+| All pieces share at least one season | Covered by H11: each piece fits the requested season |
+| "Layer 3 and 4 can't be worn simultaneously" | Unclear which layers 3 and 4 are. If counted from 1 it forbids a sweater under a jacket, which Layering 101 recommends. Needs the source code or Christoph |
 
 ### Soft rules: they change the score, not the verdict
 
@@ -75,8 +109,8 @@ you didn't like one. That's the gap:
 | S1 | Darker colours on the outside: light to dark from inner to outer layer (light jackets excepted) | Color rules, Layering 101 |
 | S2 | Light with light, dark with dark | Spring & Summer |
 | S3 | Shoes a different colour from the clothes, unless the outfit is all white or all black | Color rules |
-| S4 | Black shoes only if the outfit has black; otherwise brown, or white sneakers. White sneakers go with everything | Spring & Summer, Color rules |
-| S5 | With sneakers, a black belt if the outfit has black or is only gray/white; brown otherwise | Spring & Summer |
+| S4 | *Now hard rule H12.* White sneakers go with everything: a small bonus | Spring & Summer, Color rules |
+| S5 | *Now hard rule H12* | Spring & Summer |
 | S6 | Daytime lighter colours, evening darker (black, navy, charcoal) | Dress Codes |
 | S7 | Proven pairs get a bonus: navy + white, olive/sage + tan, light blue + tan, green + blue, white + tan | Spring & Summer |
 | S8 | Tonal match: colours within ΔE < 10 of each other go together | Color rules |
@@ -106,18 +140,58 @@ The rules use details the app doesn't record yet. In `src/shared/garment.ts`:
    type where it's clear. `TYPES` has no flannel, oxford, chambray, bomber,
    parka or peacoat, and the layering rules need them; adding types is the
    alternative.
-2. **Collared:** yes or no, for shirts (H5).
+2. **Shirt kind:** `dress | flannel | casual`. Dress covers dress shirt,
+   oxford and chambray (H5); flannel takes no sweater (H14).
 3. **Neckline:** `crew | v-neck | turtleneck | collar | other`, for sweaters
    (H5).
-4. **Metal:** `silver | gold | none`, for belts, watches and jewellery (H9).
-5. **Colour table (no model change):** fixed lightness, HSL and LAB values for
-   each of the 20 `COLORS`, plus which ones are neutral. That's enough for S1,
-   S2, S8 and S9.
-6. **Wear log:** the date each piece was last worn (S10, and the feedback in
+4. **Metal:** `silver | gold`, for belts, watches and jewellery (H9).
+5. **Accessory kind:** `watch | jewellery`, since `TYPES` has only
+   "accessories" (H8 needs the watch).
+6. **Colour table (no model change):** done, in `src/shared/outfit/colors.ts`.
+   One typical shade per colour word, with LAB and HSL worked out from it.
+7. **Wear log:** the date each piece was last worn (S10, and the feedback in
    step 5).
+
+Until the tags have 1–5, the rules take an `OutfitPiece`
+(`src/shared/outfit/pieces.ts`): the tags plus these fields, all optional.
+Tests and fixture closets fill them in, and the type gives a default where it
+can (a T-shirt is a base layer, a blazer a jacket). Adding them to the tag
+schema later changes nothing in the rules.
 
 Adding a field changes the tag schema, so pieces already scanned need a
 re-tag or a "please check" for the new fields.
+
+## The other project: wardrobe-optimization
+
+[wardrobe-optimization](https://wardrobe-optimization-669a28.pages.ost.ch/)
+is a Python library from OST (Virtual Wardrobe project). Its layering and
+colour rules match Christoph's notes almost word for word. The source on OST
+GitLab wasn't reachable ("page not found"), so this is from its documentation
+only.
+
+| | wardrobe-optimization | This pipeline |
+| --- | --- | --- |
+| Search | Genetic algorithm (NSGA-III, pymoo), 8 slots: accessory, bottom, shoes, 5 top layers | Build every outfit after filtering by season and formality, then check and score |
+| Same input, same answer | Only with a fixed random seed | Always |
+| Colours | Read from the pixels: Mask-RCNN trained on Fashionpedia cuts out the garment, fast-colorthief picks its main colours, then HSL | 20 colour words from the tagger, with one shade each |
+| Rules | 14 constraints | 16 hard rules (H1–H16) |
+| Ranking | 7 objectives kept separate (best trade-offs) | One weighted score (S1–S10) |
+| Runs | Python, on a computer | TypeScript, on the dev server or the phone |
+| Testing | Example runs with fixed seeds, checked by eye | Tests 1–5 below, with numbers |
+
+Its 7 objectives, to compare with S1–S10: colour harmony (distance to the
+nearest harmony rule), hue cluster variance, two lightness gradients (inner
+layers lighter), shoe contrast with the clothes, shoe and belt match, and
+monochrome.
+
+Why not the genetic algorithm here: a phone closet of about 100 pieces, after
+the season and formality filters, is small enough to check every outfit. That
+gives the same answer every time, which the tests need, and needs no Python.
+If a large closet makes that too slow, candidates can be built greedily
+(bottom, then shoes, then layers) instead.
+
+What to take from it: reading colours from the pixels (it already did what
+Test 3 plans), and its objectives as a check on our weights.
 
 ## Pipeline
 
@@ -156,6 +230,7 @@ compares the two.
 
 ```
 src/shared/outfit/
+  pieces.ts        a piece as the rules see it: tags plus the fields still missing
   colors.ts        the colour table: lightness, HSL, LAB, neutral
   occasions.ts     occasion → formality and colour preference
   candidates.ts    step 1
@@ -182,8 +257,8 @@ Each rule gets ✅ and ❌ cases. Where the PDFs show an example, use it:
 
 - Rust suede jacket + bright blue chinos + patterned shirt → breaks H7, and
   S2 gives a low score (Spring & Summer, "How to wear bold colours").
-- Tan jacket + white tee + light jeans + black loafers → S4 gives a low score:
-  no black in the outfit (Spring & Summer, "Matching shoes").
+- Tan jacket + white tee + light jeans + black loafers → breaks H12: no black
+  in the outfit (Spring & Summer, "Matching shoes").
 - Gold necklace and rings + silver belt buckle → breaks H9 (Spring & Summer,
   "Matching metals").
 - T-shirt + collared shirt + sweater + jacket → breaks H2 (Layering 101).
@@ -193,6 +268,10 @@ Each rule gets ✅ and ❌ cases. Where the PDFs show an example, use it:
 
 Also test each rule's edges: exactly 3 colours passes, 4 fails, 4 with one
 neutral passes.
+
+All of these are in `tests/outfit-rules.test.ts`, plus one test that checks
+every hard rule is broken by at least one outfit, so a rule that can never
+fire (say, after a typo in a type name) is caught.
 
 ### Test 2: whole suggestions on fixture closets
 
@@ -262,6 +341,7 @@ From `logs/ai-calls.jsonl`, per prompt version:
 ## Order of work
 
 1. Colour table, occasion table, hard rules and Test 1. No tag changes, no AI.
+   **Done:** `src/shared/outfit/` and `tests/outfit-rules.test.ts`.
 2. Candidates, score, fixture closets, Test 2 and the dev page.
 3. Tag additions (layer step, collared, neckline, metal) and the re-tag flow.
 4. Fashionpedia check (Test 3), then adjust rules and weights.
