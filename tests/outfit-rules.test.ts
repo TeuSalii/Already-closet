@@ -52,6 +52,14 @@ describe("H1 what an outfit is made of", () => {
     expect(broken(outfit())).toContain("H1");
   });
 
+  it("refuses a T-shirt or blouse with a dress, accepts a cardigan over it", () => {
+    const dress = () => piece("black dress", { type: "dress", colors: ["black"] });
+    const blouse = piece("cream blouse", { type: "blouse", colors: ["cream"] });
+    const cardigan = piece("beige cardigan", { type: "cardigan", colors: ["beige"] });
+    expect(broken([dress(), blouse, whiteSneakers()])).toContain("H1");
+    expect(broken([dress(), cardigan, whiteSneakers()])).not.toContain("H1");
+  });
+
   it("refuses the same piece twice", () => {
     const shirt = tee();
     expect(broken([shirt, shirt, jeans(), whiteSneakers()])).toContain("H1");
@@ -230,6 +238,13 @@ describe("H10 formality and H11 season", () => {
     const shirt = piece("white oxford", { type: "shirt", colors: ["white"], formality: "smart-casual" });
     const chinos = piece("navy chinos", { type: "pants", colors: ["navy"], formality: "smart-casual" });
     expect(broken([shirt, chinos, whiteSneakers()], smart)).not.toContain("H10");
+  });
+
+  it("H11 accepts a transitional sweater in winter, refuses a winter coat in spring", () => {
+    const sweater = piece("gray sweater", { type: "sweater", colors: ["gray"], season: "transitional" });
+    const coat = piece("wool coat", { type: "coat", colors: ["gray"], season: "winter" });
+    expect(broken([tee(), sweater, jeans(), whiteSneakers()], { ...casualDay, season: "winter" })).not.toContain("H11");
+    expect(broken([tee(), sweater, coat, jeans(), whiteSneakers()], casualDay)).toContain("H11");
   });
 
   it("H11 refuses a winter coat in summer, accepts all-year pieces", () => {

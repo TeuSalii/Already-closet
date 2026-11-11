@@ -91,6 +91,7 @@ src/
     sweep.tsx             scan one category in one go
     api/tag+api.ts        the API route that runs on your computer
     dev/test+api.ts       test page for the Mac: a folder of photos through the same AI call
+    dev/outfits+api.ts    page for the Mac: sample closets and the outfits suggested for them
   client/                 code that runs on the phone
     closet-context.tsx    the shared closet state for all screens
     passcode-gate.tsx     asks for the passcode once, before the app opens
@@ -113,6 +114,7 @@ src/
     photo-size.ts         how far a photo is shrunk before it is sent
     closest.ts            which owned pieces are closest to a wish (rule-based, on labels)
     coverage.ts           "12 of about 30 tops scanned": counts, guesses, wording
+    outfit/               outfit suggestions: rules, scores, building outfits (docs/outfit-pipeline.md)
   storage/
     closet.ts             what is saved on the phone
 tests/                    automatic tests; no network, no cost

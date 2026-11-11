@@ -33,6 +33,7 @@ export type OutfitPiece = {
   neckline?: Neckline;
   metal?: Metal;
   accessory?: AccessoryKind;
+  lastWorn?: string; // YYYY-MM-DD; missing: not known
 };
 export type Outfit = readonly OutfitPiece[];
 

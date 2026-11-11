@@ -19,13 +19,29 @@ export type HardRule = {
 export type Violation = { rule: string; reason: string };
 
 export function checkOutfit(outfit: Outfit, request: OutfitRequest): Violation[] {
-  return HARD_RULES.flatMap((rule) => {
+  return check(HARD_RULES, outfit, request);
+}
+
+// Only some rules: for a half-built outfit, where the others can't be judged yet.
+export function checkRules(outfit: Outfit, request: OutfitRequest, ids: readonly string[]): Violation[] {
+  return check(HARD_RULES.filter((rule) => ids.includes(rule.id)), outfit, request);
+}
+
+function check(rules: readonly HardRule[], outfit: Outfit, request: OutfitRequest): Violation[] {
+  return rules.flatMap((rule) => {
     const reason = rule.check(outfit, request);
     return reason === null ? [] : [{ rule: rule.id, reason }];
   });
 }
 
 export const passes = (outfit: Outfit, request: OutfitRequest) => checkOutfit(outfit, request).length === 0;
+
+// Transitional pieces (a sweater, a light jacket) are worn in winter too,
+// layered. Winter pieces are not worn in spring or autumn, nor summer ones.
+export function fitsSeason(piece: OutfitPiece, request: OutfitRequest): boolean {
+  const { season } = piece.tags;
+  return season === "all-year" || season === request.season || (request.season === "winter" && season === "transitional");
+}
 
 const names = (pieces: readonly OutfitPiece[]) => pieces.map((piece) => piece.tags.label).join(", ");
 const distinct = <T>(items: readonly T[]) => [...new Set(items)];
@@ -46,7 +62,7 @@ const wearsLayer = (outfit: Outfit, layer: Layer) => layered(outfit).some((worn)
 export const HARD_RULES: readonly HardRule[] = [
   {
     id: "H1",
-    says: "One top or dress, one bottom unless it's a dress, one pair of shoes",
+    says: "One top or dress, one bottom unless it's a dress, one pair of shoes; over a dress only a sweater, jacket or coat",
     check(outfit) {
       if (new Set(outfit.map((piece) => piece.id)).size !== outfit.length) return "the same piece twice";
       const dresses = ofCategory(outfit, "dress").length;
@@ -54,6 +70,12 @@ export const HARD_RULES: readonly HardRule[] = [
       const shoes = ofCategory(outfit, "shoes").length;
       if (dresses > 1) return `${dresses} dresses`;
       if (dresses === 1 && bottoms > 0) return "a dress and a bottom";
+      // Over a dress: a sweater, jacket or coat. Not a T-shirt or blouse.
+      const topWithDress = upperBody(outfit).find((piece) => {
+        const layer = layerOf(piece);
+        return category(piece) !== "dress" && (layer === "base" || layer === "shirt");
+      });
+      if (dresses === 1 && topWithDress) return `a dress with ${topWithDress.tags.label}`;
       if (dresses === 0 && bottoms !== 1) return bottoms === 0 ? "no bottom" : `${bottoms} bottoms`;
       if (shoes !== 1) return shoes === 0 ? "no shoes" : `${shoes} pairs of shoes`;
       return null;
@@ -163,9 +185,9 @@ export const HARD_RULES: readonly HardRule[] = [
   },
   {
     id: "H11",
-    says: "Every piece fits the season",
+    says: "Every piece fits the season; in winter, transitional pieces too",
     check(outfit, request) {
-      const wrong = outfit.filter((piece) => piece.tags.season !== "all-year" && piece.tags.season !== request.season);
+      const wrong = outfit.filter((piece) => !fitsSeason(piece, request));
       return wrong.length > 0 ? `not for ${request.season}: ${names(wrong)}` : null;
     },
   },

@@ -57,7 +57,7 @@ you didn't like one. That's the gap:
 
 | # | Rule | Source |
 | --- | --- | --- |
-| H1 | One top or one dress, one bottom unless it's a dress, one pair of shoes | Common sense |
+| H1 | One top or one dress, one bottom unless it's a dress, one pair of shoes. Over a dress only a sweater, jacket or coat, not a T-shirt or blouse | Common sense |
 | H2 | At most 3 visible layers on the upper body | Layering_Rules, Layering 101 |
 | H3 | Layer order is base → shirt → sweater → jacket → coat. A piece may go over another only if it is at most 2 steps higher and not on the same step | Layering_Rules |
 | H4 | A polo is worn alone or under a jacket (bomber, blazer) | Layering_Rules, Layering 101 |
@@ -67,7 +67,7 @@ you didn't like one. That's the gap:
 | H8 | Leather shoes (dress shoes, loafers, boots): belt and leather watch strap are the same colour. Doesn't apply to sneakers | Color rules, Spring & Summer |
 | H9 | Metals match: belt buckle, watch and jewellery are all silver or all gold | Color rules, Spring & Summer |
 | H10 | Every piece is at most one formality step from what the occasion asks for | Dress Codes, `FORMALITIES` order |
-| H11 | Every piece fits the season or the weather | Common sense, Acloset |
+| H11 | Every piece fits the season. In winter, transitional pieces fit too (a sweater is worn in winter); winter pieces don't fit spring or autumn | Common sense, Acloset |
 | H12 | Black clothes: black shoes (or white sneakers) and a black belt. No black clothes: no black shoes or belt, except with a navy suit or an outfit of only gray and white | wardrobe-optimization, Spring & Summer |
 | H13 | A base layer, shirt, sweater or dress is worn: no jacket on bare skin | wardrobe-optimization |
 | H14 | No sweater over a flannel shirt | wardrobe-optimization |
@@ -115,7 +115,11 @@ Decisions made while writing them:
 | S7 | Proven pairs get a bonus: navy + white, olive/sage + tan, light blue + tan, green + blue, white + tan | Spring & Summer |
 | S8 | Tonal match: colours within ΔE < 10 of each other go together | Color rules |
 | S9 | Colour-wheel harmony (analogous, complementary, triadic). Small weight, see "sources disagree" | Color rules |
-| S10 | Pieces not worn for a long time score higher | The app's purpose |
+| S10 | Pieces not worn for a long time score higher. A reward only (0 to 1 × 1.5), never a penalty: with a penalty, a navy suit worn last week never came up for a cocktail evening | The app's purpose |
+
+All in `src/shared/outfit/score.ts`, with the weights in `WEIGHTS`. Each part
+of a score keeps its reason ("navy + white", "brings back the tan chore
+jacket, not worn for 205 days"); the dev page shows them.
 
 ### Occasion → formality
 
@@ -239,10 +243,10 @@ src/shared/outfit/
   suggest.ts       steps 1–3 together
 src/server/pick-outfits.ts   step 4, logged in logs/ai-calls.jsonl like tagging
 src/app/api/outfit+api.ts    POST /api/outfit, behind the passcode
-src/app/dev/outfits.tsx      dev page: fixture closets and their suggestions
+src/app/dev/outfits+api.ts   dev page: fixture closets and their suggestions
 tests/outfit-rules.test.ts
 tests/outfit-suggest.test.ts
-tests/fixtures/closets/*.json
+tests/fixtures/closets/      casual.json, office.json, small.json, index.ts (loader and requests)
 scripts/fashionpedia-check.ts
 ```
 
@@ -275,10 +279,9 @@ fire (say, after a typo in a type name) is caught.
 
 ### Test 2: whole suggestions on fixture closets
 
-Three sample closets in `tests/fixtures/closets/`, about 30 pieces each, with
-different mixes (mostly casual; office; small closet with few shoes). For
-each closet and a fixed set of requests (casual daytime, office, cocktail
-evening, beach, winter):
+Three sample closets in `tests/fixtures/closets/`: casual (30 pieces), office
+(23) and small (12, with dresses and a skirt). For each closet and a fixed
+set of requests (casual daytime, office, cocktail evening, beach, winter):
 
 - No suggestion breaks a hard rule.
 - The same closet and request always give the same result (no AI).
@@ -290,9 +293,30 @@ evening, beach, winter):
 Plus random closets: generate many, and check the hard-rule invariant holds
 for every suggestion.
 
-The dev page (`dev/outfits.tsx`) shows the same closets with each outfit's
-score, reasons and the outfits that were dropped and why, so the team can
-review by eye.
+The builder drops half-built outfits early (upper body → bottom → shoes →
+belt) so it stays fast: the biggest sample closet takes under 0.2 s. A test
+checks that this shortcut changes nothing: on the small closet and on random
+ones, it finds exactly the outfits that trying every subset of pieces finds.
+
+All of this is in `tests/outfit-suggest.test.ts`.
+
+The dev page at `http://localhost:8081/dev/outfits` (with `npx expo start`
+running) shows the same closets with each outfit's score, reasons, and the
+outfits that were dropped and why, so the team can review by eye. Like
+`/dev/test`, it only answers on this computer in development.
+
+What the builder leaves out for now: accessories other than a belt (bag, hat,
+watch, jewellery), and upper-body pieces with no known layer (a vest).
+
+What the first look at the sample closets showed:
+
+- Nothing makes a winter outfit include a coat: it can be a sweater and a
+  jacket. A soft rule ("cold: a coat or a warm jacket") or the weather input
+  could fix it.
+- Sport pieces still come up for casual requests (gray joggers with an
+  oxford), since sport is one formality step from casual.
+- A polo under a blazer is ranked first for a cocktail evening in the office
+  closet. It passes every rule, but a stylist might disagree: worth asking.
 
 ### Test 3: the rules against real outfits (Fashionpedia)
 
@@ -343,6 +367,8 @@ From `logs/ai-calls.jsonl`, per prompt version:
 1. Colour table, occasion table, hard rules and Test 1. No tag changes, no AI.
    **Done:** `src/shared/outfit/` and `tests/outfit-rules.test.ts`.
 2. Candidates, score, fixture closets, Test 2 and the dev page.
+   **Done:** `candidates.ts`, `score.ts`, `suggest.ts`, `tests/fixtures/closets/`,
+   `tests/outfit-suggest.test.ts` and `src/app/dev/outfits+api.ts`.
 3. Tag additions (layer step, collared, neckline, metal) and the re-tag flow.
 4. Fashionpedia check (Test 3), then adjust rules and weights.
 5. AI step, `POST /api/outfit` and Test 4.
