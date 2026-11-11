@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as checkPasscode, POST as tag } from "@/app/api/tag+api";
 import { GET as devPage, POST as devSend } from "@/app/dev/test+api";
-import { PASSCODE_HEADER } from "@/shared/garment";
+import { normalizeTags, PASSCODE_HEADER } from "@/shared/garment";
 
 import { tags } from "./helpers";
 
@@ -104,7 +104,8 @@ describe("POST /api/tag", () => {
     const response = await tag(post(JSON.stringify({ photoBase64: PHOTO })));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ tags: tags() });
+    // Details that don't apply to a hoodie come back as "none".
+    expect(await response.json()).toEqual({ tags: normalizeTags(tags()) });
     const [url, init] = hub.mock.calls[0];
     expect(url).toBe("https://api.llmhub.infs.ai/v1/chat/completions");
     expect((init?.headers as Record<string, string>).Authorization).toBe(`Bearer ${KEY}`);

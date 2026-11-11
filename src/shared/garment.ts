@@ -11,7 +11,7 @@ export const TYPES = [
   "pants", "jeans", "shorts", "skirt", "dress", "jumpsuit",
   "jacket", "coat", "blazer", "vest",
   "shoes", "sneakers", "boots", "sandals", "socks", "tights",
-  "hat", "scarf", "belt", "bag", "tie", "accessories",
+  "hat", "scarf", "belt", "bag", "tie", "watch", "jewellery", "accessories",
 ] as const;
 
 export const COLORS = [
@@ -46,6 +46,17 @@ export const FORMALITIES = ["sport", "casual", "smart-casual", "formal"] as cons
 // "elegant" because it overlaps "classic": the model would flip between them.
 export const STYLES = ["minimalist", "classic", "vintage", "streetwear", "sporty", "romantic"] as const;
 
+// Details the outfit rules need (docs/outfit-pipeline.md, "What the tags
+// need first"). Each one applies to a few types only; for every other type
+// the answer is "none".
+// - shirtKind, for shirts: "dress" is a dress shirt, oxford or chambray
+//   (only a V-neck sweater goes over it); "flannel" takes no sweater at all.
+// - neckline, for sweaters: a crew-neck can't go over a collared shirt.
+// - metal, for belts, watches and jewellery: silver and gold don't mix.
+export const SHIRT_KINDS = ["dress", "flannel", "casual", "none"] as const;
+export const NECKLINES = ["crew", "v-neck", "turtleneck", "other", "none"] as const;
+export const METALS = ["silver", "gold", "none"] as const;
+
 // "low" makes the app ask the person instead of trusting the tags.
 export const CONFIDENCES = ["low", "high"] as const;
 
@@ -64,7 +75,8 @@ const CATEGORY_OF: Record<Type, Category> = {
   jacket: "outerwear", coat: "outerwear", blazer: "outerwear", vest: "outerwear",
   shoes: "shoes", sneakers: "shoes", boots: "shoes", sandals: "shoes",
   socks: "accessory", tights: "accessory", hat: "accessory", scarf: "accessory",
-  belt: "accessory", bag: "accessory", tie: "accessory", accessories: "accessory",
+  belt: "accessory", bag: "accessory", tie: "accessory", watch: "accessory", jewellery: "accessory",
+  accessories: "accessory",
 };
 export const categoryOf = (type: Type): Category => CATEGORY_OF[type];
 
@@ -78,7 +90,46 @@ export type GarmentTags = {
   formality: (typeof FORMALITIES)[number];
   style: (typeof STYLES)[number]; // the one it reads as most
   confidence: (typeof CONFIDENCES)[number];
+  // Missing on pieces scanned before the details existed (2026-11-11).
+  // Where one applies but is missing, the app asks ("Please check").
+  shirtKind?: (typeof SHIRT_KINDS)[number];
+  neckline?: (typeof NECKLINES)[number];
+  metal?: (typeof METALS)[number];
 };
+
+export const DETAILS = ["shirtKind", "neckline", "metal"] as const;
+export type Detail = (typeof DETAILS)[number];
+
+const DETAIL_TYPES: Record<Detail, readonly Type[]> = {
+  shirtKind: ["shirt"],
+  neckline: ["sweater"],
+  metal: ["belt", "watch", "jewellery", "accessories"],
+};
+export const appliesTo = (detail: Detail, type: Type) => DETAIL_TYPES[detail].includes(type);
+
+// The words a person can pick for a detail that applies. "none" only makes
+// sense for metal (a fabric belt); a shirt always has some kind.
+export const detailChoices = (detail: Detail) =>
+  detail === "metal" ? FIELDS.metal : FIELDS[detail].filter((word) => word !== "none");
+
+const isDetail = (field: string): field is Detail => (DETAILS as readonly string[]).includes(field);
+
+// Details that apply to this type but have no answer yet.
+export function missingDetails(tags: GarmentTags): Detail[] {
+  return DETAILS.filter((detail) => {
+    if (!appliesTo(detail, tags.type)) return false;
+    const value = tags[detail];
+    return value === undefined || (value === "none" && detail !== "metal");
+  });
+}
+
+// "none" for details that don't apply to the type. The model sometimes
+// answers them anyway (a neckline for a hoodie); the rules shouldn't see it.
+export function normalizeTags(tags: GarmentTags): GarmentTags {
+  const result = { ...tags };
+  for (const detail of DETAILS) if (!appliesTo(detail, tags.type)) result[detail] = "none";
+  return result;
+}
 
 // The labels a person can check and change, with the words each may take.
 // `label` is free text and `confidence` is the model's own, so neither is here.
@@ -90,6 +141,9 @@ export const FIELDS = {
   season: SEASONS,
   formality: FORMALITIES,
   style: STYLES,
+  shirtKind: SHIRT_KINDS,
+  neckline: NECKLINES,
+  metal: METALS,
 } as const;
 export type Field = keyof typeof FIELDS;
 export const FIELD_NAMES = Object.keys(FIELDS) as Field[];
@@ -100,10 +154,12 @@ export const FIELD_NAMES = Object.keys(FIELDS) as Field[];
 // confusion matrix shows are often wrong (concept v3, technical test 3).
 export const CHECK_WHEN_LOW: readonly Field[] = ["type", "pattern", "material"];
 
-// The fields still waiting for the person: flagged, and not yet checked.
+// The fields still waiting for the person, and not yet checked: the unsure
+// ones when confidence is low, and any detail that applies but has no answer
+// (a shirt scanned before shirt kinds existed).
 export function fieldsToCheck(tags: GarmentTags, checked: readonly Field[] = []): Field[] {
-  if (tags.confidence === "high") return [];
-  return CHECK_WHEN_LOW.filter((field) => !checked.includes(field));
+  const unsure = tags.confidence === "high" ? [] : CHECK_WHEN_LOW;
+  return [...unsure, ...missingDetails(tags)].filter((field) => !checked.includes(field));
 }
 
 // Changes one label. A changed label counts as checked: the person looked.
@@ -114,9 +170,22 @@ export function changeLabel<F extends keyof GarmentTags>(
   value: GarmentTags[F],
 ): { tags: GarmentTags; checked: Field[] } {
   const isField = (FIELD_NAMES as readonly string[]).includes(field);
+  let changed: GarmentTags = { ...tags, [field]: value };
+  let stillChecked = [...checked];
+  // A new type can bring details that now apply (a T-shirt corrected to a
+  // shirt needs a shirt kind) and make others not apply.
+  if (field === "type") {
+    changed = normalizeTags(changed);
+    for (const detail of DETAILS) {
+      if (appliesTo(detail, changed.type) && !appliesTo(detail, tags.type)) {
+        delete changed[detail];
+        stillChecked = stillChecked.filter((f) => f !== detail);
+      }
+    }
+  }
   return {
-    tags: { ...tags, [field]: value },
-    checked: isField && !checked.includes(field as Field) ? [...checked, field as Field] : [...checked],
+    tags: changed,
+    checked: isField && !stillChecked.includes(field as Field) ? [...stillChecked, field as Field] : stillChecked,
   };
 }
 
@@ -136,8 +205,14 @@ export const TAG_SCHEMA = {
     formality: { type: "string", enum: FORMALITIES },
     style: { type: "string", enum: STYLES },
     confidence: { type: "string", enum: CONFIDENCES },
+    shirtKind: { type: "string", enum: SHIRT_KINDS },
+    neckline: { type: "string", enum: NECKLINES },
+    metal: { type: "string", enum: METALS },
   },
-  required: ["label", "type", "colors", "pattern", "material", "season", "formality", "style", "confidence"],
+  required: [
+    "label", "type", "colors", "pattern", "material", "season", "formality", "style", "confidence",
+    "shirtKind", "neckline", "metal",
+  ],
 } as const;
 
 const isOneOf = (words: readonly string[], value: unknown) => typeof value === "string" && words.includes(value);
@@ -155,7 +230,10 @@ export function isGarmentTags(value: unknown): value is GarmentTags {
     tags.colors.length >= minItems &&
     tags.colors.length <= maxItems &&
     tags.colors.every((color) => isOneOf(COLORS, color)) &&
-    FIELD_NAMES.every((field) => field === "colors" || isOneOf(FIELDS[field], tags[field])) &&
+    // Details may be missing (pieces scanned before them), but not wrong.
+    FIELD_NAMES.every(
+      (field) => field === "colors" || (isDetail(field) && tags[field] === undefined) || isOneOf(FIELDS[field], tags[field]),
+    ) &&
     isOneOf(CONFIDENCES, tags.confidence)
   );
 }

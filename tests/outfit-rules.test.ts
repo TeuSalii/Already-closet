@@ -134,6 +134,38 @@ describe("layering", () => {
   });
 });
 
+describe("details read from the tags", () => {
+  // Since step 3 the AI answers shirt kind, neckline and metal in the tags;
+  // the rules read them there when the piece doesn't override them.
+  it("H5 reads the neckline and shirt kind from the tags", () => {
+    const oxford = piece("oxford", { type: "shirt", colors: ["white"], shirtKind: "dress" });
+    const crew = piece("crew", { type: "sweater", colors: ["gray"], neckline: "crew" });
+    const vee = piece("vee", { type: "sweater", colors: ["gray"], neckline: "v-neck" });
+    expect(broken([oxford, crew, jeans(), whiteSneakers()])).toContain("H5");
+    expect(broken([oxford, vee, jeans(), whiteSneakers()])).not.toContain("H5");
+  });
+
+  it("H14 reads a flannel from the tags", () => {
+    const flannel = piece("flannel", { type: "shirt", colors: ["green"], shirtKind: "flannel" });
+    const vee = piece("vee", { type: "sweater", colors: ["gray"], neckline: "v-neck" });
+    expect(broken([flannel, vee, jeans(), whiteSneakers()])).toContain("H14");
+  });
+
+  it("H8 and H9 know a watch by its type, and its metal from the tags", () => {
+    const boots = piece("brown boots", { type: "boots", colors: ["brown"], material: "leather" });
+    const strap = piece("tan strap watch", { type: "watch", colors: ["tan"], material: "leather", metal: "gold" });
+    const belt = piece("brown belt", { type: "belt", colors: ["brown"], material: "leather", metal: "silver" });
+    const outfit = [tee(), piece("tan chinos", { type: "pants", colors: ["tan"] }), boots, belt, strap];
+    expect(broken(outfit)).toEqual(expect.arrayContaining(["H8", "H9"]));
+  });
+
+  it("treats none as no answer", () => {
+    const shirt = piece("shirt", { type: "shirt", colors: ["white"], shirtKind: "none" });
+    const crew = piece("crew", { type: "sweater", colors: ["gray"], neckline: "crew" });
+    expect(broken([shirt, crew, jeans(), whiteSneakers()])).toContain("H5"); // no kind: counts as a dress shirt
+  });
+});
+
 describe("H6 at most 3 colours", () => {
   it("accepts 3 colours", () => {
     const outfit = [tee("white"), piece("olive chinos", { type: "pants", colors: ["olive"] }), piece("brown boots", { type: "boots", colors: ["brown"] })];

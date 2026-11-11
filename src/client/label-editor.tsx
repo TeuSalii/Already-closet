@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { colors } from "@/client/theme";
-import { type Field, FIELD_NAMES, FIELDS, fieldsToCheck, type GarmentTags } from "@/shared/garment";
+import {
+  appliesTo, DETAILS, type Detail, detailChoices, type Field, FIELD_NAMES, FIELDS, fieldsToCheck, type GarmentTags,
+  missingDetails,
+} from "@/shared/garment";
 
 // The AI's labels, shown so the person can check and change them before
 // anything is done with them (concept v3: "Verify"). Used for pieces you own,
@@ -17,7 +20,12 @@ const NAMES: Record<Field, string> = {
   season: "Season",
   formality: "Formality",
   style: "Style",
+  shirtKind: "Shirt kind",
+  neckline: "Neckline",
+  metal: "Metal",
 };
+
+const isDetail = (field: Field): field is Detail => (DETAILS as readonly string[]).includes(field);
 
 const MAX_COLORS = 3; // the same limit the model has (TAG_SCHEMA)
 
@@ -32,6 +40,10 @@ export function LabelEditor({ tags, checked, onChange, onConfirm }: Props) {
   const [open, setOpen] = useState<Field | null>(null);
   const [label, setLabel] = useState(tags.label);
   const toCheck = fieldsToCheck(tags, checked);
+  // Details only show for the types they apply to: no "neckline" on jeans.
+  const shown = FIELD_NAMES.filter((field) => !isDetail(field) || appliesTo(field, tags.type));
+  const newDetails = missingDetails(tags).some((detail) => toCheck.includes(detail));
+  const unsure = toCheck.some((field) => !isDetail(field));
 
   function commitLabel() {
     const trimmed = label.trim();
@@ -51,11 +63,15 @@ export function LabelEditor({ tags, checked, onChange, onConfirm }: Props) {
       />
 
       {toCheck.length > 0 && (
-        <Text style={styles.note}>The AI wasn't sure about everything. Please check the marked labels.</Text>
+        <Text style={styles.note}>
+          {unsure ? "The AI wasn't sure about everything. " : ""}
+          {newDetails ? "Some labels are new since this piece was read. " : ""}
+          Please check the marked labels.
+        </Text>
       )}
 
       <View>
-        {FIELD_NAMES.map((field) => (
+        {shown.map((field) => (
           <View key={field} style={styles.field}>
             <Pressable
               style={styles.fieldRow}
@@ -65,15 +81,15 @@ export function LabelEditor({ tags, checked, onChange, onConfirm }: Props) {
               accessibilityHint={`Change ${NAMES[field].toLowerCase()}`}
             >
               <Text style={styles.fieldName}>{NAMES[field]}</Text>
-              <Text style={styles.fieldValue}>{field === "colors" ? tags.colors.join(", ") : tags[field]}</Text>
+              <Text style={styles.fieldValue}>{field === "colors" ? tags.colors.join(", ") : (tags[field] ?? "not set")}</Text>
               {toCheck.includes(field) && <Text style={styles.check}>Please check</Text>}
             </Pressable>
             {open === field && (field === "colors" ? (
               <ColorChoice value={tags.colors} onChange={(value) => onChange("colors", value)} />
             ) : (
               <OneChoice
-                options={FIELDS[field]}
-                value={tags[field]}
+                options={isDetail(field) ? detailChoices(field) : FIELDS[field]}
+                value={tags[field] ?? ""}
                 onChange={(value) => {
                   onChange(field, value as GarmentTags[typeof field]);
                   setOpen(null);

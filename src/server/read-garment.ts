@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { type AiCallEntry, appendAiCall } from "@/server/ai-call-log";
-import { type GarmentTags, isGarmentTags, TAG_SCHEMA } from "@/shared/garment";
+import { type GarmentTags, isGarmentTags, normalizeTags, TAG_SCHEMA } from "@/shared/garment";
 
 // A vision model on LLM Hub looks at the photo. The photo is sent to LLM Hub.
 // Needs LLM_API_KEY in .env (read only here on the server, never
@@ -26,6 +26,13 @@ Look at the MAIN piece of clothing in the photo and describe only that piece.
 - style: the single style the piece reads as most.
 - confidence: "high" only if the piece is clearly visible and you are sure of
   its type, colour and formality. Otherwise "low".
+- shirtKind: only for type "shirt", otherwise "none". "dress" for a dress
+  shirt, oxford or chambray shirt; "flannel" for a flannel shirt; "casual"
+  for any other shirt with buttons.
+- neckline: only for type "sweater", otherwise "none".
+- metal: only for a belt, watch, jewellery or other accessory: the colour of
+  its metal (buckle, case, chain). "none" if it has no visible metal, or for
+  any other type.
 Reply with JSON only, matching this schema:
 ${JSON.stringify(TAG_SCHEMA)}`;
 const USER_TEXT = "Tag this piece.";
@@ -113,5 +120,5 @@ async function askModel(photoBase64: string, entry: AiCallEntry): Promise<Garmen
   }
   const answer: unknown = JSON.parse(message.content);
   if (!isGarmentTags(answer)) throw new Error("The model's answer does not match the tag lists");
-  return answer;
+  return normalizeTags(answer);
 }

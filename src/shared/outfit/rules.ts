@@ -1,7 +1,8 @@
 import { type Color, isBold, isNeutral, matches, METALLICS } from "@/shared/outfit/colors";
 import { formalityGap, OCCASION_RULES, type OutfitRequest } from "@/shared/outfit/occasions";
 import {
-  category, isWhiteSneakers, type Layer, layerOf, mainColor, type Outfit, type OutfitPiece, shirtKindOf, stepOf,
+  accessoryOf, category, isWhiteSneakers, type Layer, layerOf, mainColor, metalOf, necklineOf, type Outfit,
+  type OutfitPiece, shirtKindOf, stepOf,
   upperBody, visible,
 } from "@/shared/outfit/pieces";
 
@@ -120,7 +121,7 @@ export const HARD_RULES: readonly HardRule[] = [
     check(outfit) {
       if (!outfit.some((piece) => shirtKindOf(piece) === "dress")) return null;
       const wrong = layered(outfit)
-        .filter(({ piece, layer }) => layer === "sweater" && !(piece.tags.type === "sweater" && piece.neckline === "v-neck"))
+        .filter(({ piece, layer }) => layer === "sweater" && !(piece.tags.type === "sweater" && necklineOf(piece) === "v-neck"))
         .map(({ piece }) => piece);
       return wrong.length > 0 ? `${names(wrong)} over a collared shirt` : null;
     },
@@ -160,7 +161,7 @@ export const HARD_RULES: readonly HardRule[] = [
       const leather = (piece: OutfitPiece) => piece.tags.material === "leather" || piece.tags.material === "suede";
       if (!(["shoes", "boots"].includes(shoes.tags.type) && leather(shoes))) return null;
       const others = outfit.filter(
-        (piece) => piece.tags.type === "belt" || (piece.accessory === "watch" && leather(piece)),
+        (piece) => piece.tags.type === "belt" || (accessoryOf(piece) === "watch" && leather(piece)),
       );
       const wrong = others.filter((piece) => !matches(mainColor(piece), mainColor(shoes)));
       return wrong.length > 0 ? `${names(wrong)} doesn't match ${shoes.tags.label}` : null;
@@ -170,7 +171,7 @@ export const HARD_RULES: readonly HardRule[] = [
     id: "H9",
     says: "Metals match: all silver or all gold",
     check(outfit) {
-      const metals = distinct(outfit.flatMap((piece) => (piece.metal ? [piece.metal] : [])));
+      const metals = distinct(outfit.flatMap((piece) => metalOf(piece) ?? []));
       return metals.length > 1 ? "silver and gold together" : null;
     },
   },

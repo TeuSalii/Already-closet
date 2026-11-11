@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { CATEGORIES, categoryOf, changeLabel, fieldsToCheck, isGarmentTags, TYPES } from "@/shared/garment";
+import {
+  CATEGORIES, categoryOf, changeLabel, detailChoices, fieldsToCheck, isGarmentTags, missingDetails, normalizeTags,
+  TAG_SCHEMA, TYPES,
+} from "@/shared/garment";
 
 import { tags } from "./helpers";
 
@@ -51,5 +54,54 @@ describe("changeLabel", () => {
 
   it("does not count the free-text name as a checked label", () => {
     expect(changeLabel(tags(), [], "label", "my hoodie").checked).toEqual([]);
+  });
+});
+
+describe("details: shirt kind, neckline, metal", () => {
+  it("accepts tags without them (pieces scanned before they existed)", () => {
+    expect(isGarmentTags(tags({ type: "shirt" }))).toBe(true);
+  });
+
+  it("accepts known words and refuses unknown ones", () => {
+    expect(isGarmentTags(tags({ type: "sweater", neckline: "v-neck" }))).toBe(true);
+    expect(isGarmentTags(tags({ type: "sweater", neckline: "boat" as never }))).toBe(false);
+    expect(isGarmentTags(tags({ type: "belt", metal: "copper" as never }))).toBe(false);
+  });
+
+  it("are required from the model", () => {
+    expect(TAG_SCHEMA.required).toEqual(expect.arrayContaining(["shirtKind", "neckline", "metal"]));
+  });
+
+  it("are set to none where they don't apply", () => {
+    const tidy = normalizeTags(tags({ type: "hoodie", neckline: "crew", shirtKind: "dress", metal: "gold" }));
+    expect(tidy).toMatchObject({ neckline: "none", shirtKind: "none", metal: "none" });
+    expect(normalizeTags(tags({ type: "sweater", neckline: "crew" })).neckline).toBe("crew");
+    expect(normalizeTags(tags({ type: "watch", metal: "gold" })).metal).toBe("gold");
+  });
+
+  it("asks for a detail that applies but has no answer, even when the model is sure", () => {
+    expect(missingDetails(tags({ type: "shirt" }))).toEqual(["shirtKind"]);
+    expect(fieldsToCheck(tags({ type: "shirt", confidence: "high" }))).toEqual(["shirtKind"]);
+    expect(fieldsToCheck(tags({ type: "shirt", shirtKind: "none" }))).toEqual(["shirtKind"]);
+    expect(fieldsToCheck(tags({ type: "shirt", shirtKind: "casual" }))).toEqual([]);
+    expect(fieldsToCheck(tags({ type: "shirt" }), ["shirtKind"])).toEqual([]);
+  });
+
+  it("accepts no metal on a belt: a fabric belt has none", () => {
+    expect(fieldsToCheck(tags({ type: "belt", metal: "none" }))).toEqual([]);
+    expect(detailChoices("metal")).toContain("none");
+    expect(detailChoices("shirtKind")).not.toContain("none");
+  });
+
+  it("asks again when a corrected type brings a new detail", () => {
+    const tee = normalizeTags(tags({ type: "t-shirt" }));
+    const corrected = changeLabel(tee, ["shirtKind"], "type", "shirt");
+    expect(corrected.tags.shirtKind).toBeUndefined();
+    expect(fieldsToCheck(corrected.tags, corrected.checked)).toEqual(["shirtKind"]);
+  });
+
+  it("drops a detail when a corrected type no longer has it", () => {
+    const shirt = tags({ type: "shirt", shirtKind: "flannel" });
+    expect(changeLabel(shirt, [], "type", "t-shirt").tags.shirtKind).toBe("none");
   });
 });

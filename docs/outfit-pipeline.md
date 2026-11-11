@@ -146,24 +146,41 @@ The rules use details the app doesn't record yet. In `src/shared/garment.ts`:
    alternative.
 2. **Shirt kind:** `dress | flannel | casual`. Dress covers dress shirt,
    oxford and chambray (H5); flannel takes no sweater (H14).
-3. **Neckline:** `crew | v-neck | turtleneck | collar | other`, for sweaters
-   (H5).
-4. **Metal:** `silver | gold`, for belts, watches and jewellery (H9).
-5. **Accessory kind:** `watch | jewellery`, since `TYPES` has only
-   "accessories" (H8 needs the watch).
+3. **Neckline:** `crew | v-neck | turtleneck | other`, for sweaters (H5).
+4. **Metal:** `silver | gold | none`, for belts, watches and jewellery (H9).
+5. **Accessory kind:** `watch` and `jewellery` became types of their own
+   (H8 needs the watch).
 6. **Colour table (no model change):** done, in `src/shared/outfit/colors.ts`.
    One typical shade per colour word, with LAB and HSL worked out from it.
 7. **Wear log:** the date each piece was last worn (S10, and the feedback in
    step 5).
 
-Until the tags have 1–5, the rules take an `OutfitPiece`
-(`src/shared/outfit/pieces.ts`): the tags plus these fields, all optional.
-Tests and fixture closets fill them in, and the type gives a default where it
-can (a T-shirt is a base layer, a blazer a jacket). Adding them to the tag
-schema later changes nothing in the rules.
+**Done (step 3) for 2–5,** in `src/shared/garment.ts`:
 
-Adding a field changes the tag schema, so pieces already scanned need a
-re-tag or a "please check" for the new fields.
+- The AI is asked for `shirtKind`, `neckline` and `metal` with every scan. Each
+  applies to a few types only (shirt kind to shirts, neckline to sweaters,
+  metal to belts, watches, jewellery and accessories); for every other type
+  the answer is `"none"`, and `normalizeTags()` sets it so even if the model
+  answers something else.
+- **Pieces scanned before** don't have them. They stay valid (the details are
+  optional in storage), and where a detail applies but is missing, the
+  piece gets **"Please check"** on the closet grid and the detail shows
+  "not set" in the label editor. Until then the rules use the default (a
+  shirt counts as a dress shirt). Scanning the piece again also fills them in.
+- **Correcting the type** in the label editor brings the details with it: a
+  T-shirt corrected to a shirt asks for its shirt kind.
+- The label editor only shows a detail for the types it applies to.
+
+**Layer (1) is not asked.** The type gives it for every type except vest, which
+stays out of outfits for now (a puffer vest is a jacket, a waistcoat is not).
+
+The rules take an `OutfitPiece` (`src/shared/outfit/pieces.ts`): the tags,
+plus optional fields that override them. Tests and fixture closets use the
+fields; real pieces use the tags.
+
+**For the tagging study:** the new details changed the prompt, so its
+fingerprint in `logs/ai-calls.jsonl` changed too. Scans before and after are
+not the same test: compare them only within one fingerprint.
 
 ## The other project: wardrobe-optimization
 
@@ -382,6 +399,8 @@ From `logs/ai-calls.jsonl`, per prompt version:
    **Done:** `candidates.ts`, `score.ts`, `suggest.ts`, `tests/fixtures/closets/`,
    `tests/outfit-suggest.test.ts` and `src/app/dev/outfits+api.ts`.
 3. Tag additions (layer step, collared, neckline, metal) and the re-tag flow.
+   **Done:** shirt kind, neckline and metal are asked of the AI; older pieces
+   get "Please check" (see "What the tags need first").
 4. Fashionpedia check (Test 3), then adjust rules and weights.
 5. AI step, `POST /api/outfit` and Test 4.
 6. Outfit screen in the app with feedback and the wear log, then Test 5.
