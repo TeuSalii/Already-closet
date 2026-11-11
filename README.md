@@ -95,7 +95,9 @@ src/
     closet-context.tsx    the shared closet state for all screens
     passcode-gate.tsx     asks for the passcode once, before the app opens
     add-piece.ts          camera and photo library, saving photos, asking for tags
-    cut-out.ts            shrinks the picture, whitens everything outside the line
+    cut-out.ts            opens the cut screen and waits for its answer; deletes photos
+    cut-picture.ts        shrinks the picture, whitens everything outside the line (Skia)
+    loading.tsx           what shows while saved data is read
     lasso.ts              the line sticks to the picture's edge and follows it round corners
     card.tsx              the photo card shared by the closet and the second-hand list
     label-editor.tsx      the AI labels, with "please check", to confirm or change

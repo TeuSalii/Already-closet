@@ -1,10 +1,14 @@
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Line, Path } from "react-native-svg";
 
-// Icons that are not in Lucide, drawn the Lucide way (24 × 24, 2 px stroke,
-// round ends) so they sit next to Lucide icons without looking different.
+// The app's icons, all drawn the Lucide way (24 × 24, 2 px stroke, round
+// ends) so they look alike. Kept here instead of imported from
+// lucide-react-native: a development build would load all of its 2,000
+// icon files, half of the app's code, for the few used.
+
+export type IconProps = { size?: number; color?: string };
 
 // Restart: an arrow turning back to the start. From restart.svg.
-export function RestartIcon({ size = 24, color = "black" }: { size?: number; color?: string }) {
+export function RestartIcon({ size = 24, color = "black" }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -15,6 +19,36 @@ export function RestartIcon({ size = 24, color = "black" }: { size?: number; col
         strokeLinejoin="round"
       />
       <Path d="M5.23193 5.23181V10.6464H10.6465" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// The two below are copied from Lucide (ISC licence, © Lucide Icons and
+// Contributors).
+
+export function ScissorsLineDashedIcon({ size = 24, color = "black" }: IconProps) {
+  const line = { stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5.42 9.42 8 12" {...line} />
+      <Circle cx="4" cy="8" r="2" {...line} />
+      <Path d="m14 6-8.58 8.58" {...line} />
+      <Circle cx="4" cy="16" r="2" {...line} />
+      <Path d="M10.8 14.8 14 18" {...line} />
+      <Path d="M16 12h-2" {...line} />
+      <Path d="M22 12h-2" {...line} />
+    </Svg>
+  );
+}
+
+export function FrameIcon({ size = 24, color = "black" }: IconProps) {
+  const line = { stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="22" x2="2" y1="6" y2="6" {...line} />
+      <Line x1="22" x2="2" y1="18" y2="18" {...line} />
+      <Line x1="6" x2="6" y1="2" y2="22" {...line} />
+      <Line x1="18" x2="18" y1="2" y2="22" {...line} />
     </Svg>
   );
 }

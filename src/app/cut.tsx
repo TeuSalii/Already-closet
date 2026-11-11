@@ -1,13 +1,13 @@
 import { Canvas, Group, Image as SkiaImage, Path, Rect, Skia, type SkImage, type SkPoint } from "@shopify/react-native-skia";
 import { router } from "expo-router";
-import { Frame, type LucideIcon, ScissorsLineDashed } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type GestureResponderEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { currentCut, deleteIfCached, prepare, renderCutout, settleCut } from "@/client/cut-out";
-import { RestartIcon } from "@/client/icons";
+import { currentCut, deleteIfCached, settleCut } from "@/client/cut-out";
+import { prepare, renderCutout } from "@/client/cut-picture";
+import { FrameIcon, type IconProps, RestartIcon, ScissorsLineDashedIcon } from "@/client/icons";
 import { caughtEdge, close, extend, type LassoPoint, place } from "@/client/lasso";
 import { colors } from "@/client/theme";
 
@@ -192,8 +192,8 @@ export default function CutScreen() {
       <View style={styles.modes}>
         {/* Icons only, like a photo editor; the hint above says what the
             chosen tool does, and each button has a spoken label. */}
-        <Tool icon={ScissorsLineDashed} label="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); }} />
-        <Tool icon={Frame} label="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); }} />
+        <Tool icon={ScissorsLineDashedIcon} label="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); }} />
+        <Tool icon={FrameIcon} label="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); }} />
         <View style={styles.flex} />
         <Pressable
           style={[styles.tool, points.length === 0 && styles.disabled]}
@@ -223,7 +223,7 @@ export default function CutScreen() {
 }
 
 function Tool({ icon: Icon, label, chosen, onPress }: {
-  icon: LucideIcon;
+  icon: ComponentType<IconProps>;
   label: string;
   chosen: boolean;
   onPress: () => void;
@@ -236,7 +236,7 @@ function Tool({ icon: Icon, label, chosen, onPress }: {
       accessibilityLabel={label}
       accessibilityState={{ selected: chosen }}
     >
-      <Icon size={24} color={chosen ? colors.page : colors.ink} strokeWidth={2} />
+      <Icon size={24} color={chosen ? colors.page : colors.ink} />
     </Pressable>
   );
 }

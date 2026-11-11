@@ -3,6 +3,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from "
 
 import { capture, readPhoto } from "@/client/add-piece";
 import { deleteFile } from "@/client/cut-out";
+import { Loading } from "@/client/loading";
 import type { Estimates } from "@/shared/coverage";
 import { type Category, changeLabel, FIELD_NAMES, type GarmentTags } from "@/shared/garment";
 import {
@@ -102,7 +103,7 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  if (pieces === null || wishes === null || estimates === null) return null;
+  if (pieces === null || wishes === null || estimates === null) return <Loading />;
 
   const closet: Closet = {
     pieces,

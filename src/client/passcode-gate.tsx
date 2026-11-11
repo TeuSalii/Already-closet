@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput } from "react-native";
 
+import { Loading } from "@/client/loading";
 import { colors } from "@/client/theme";
 import { PASSCODE_HEADER } from "@/shared/garment";
 import { forgetPasscode, loadPasscode, savePasscode } from "@/storage/closet";
@@ -40,7 +41,7 @@ export function PasscodeGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (state === "loading") return null;
+  if (state === "loading") return <Loading />;
   if (state === "locked") return <PasscodeScreen onOpen={() => setState("open")} />;
   return children;
 }

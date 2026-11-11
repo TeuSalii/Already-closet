@@ -110,7 +110,7 @@ function classify(files) {
   return { photos, refused };
 }
 
-// Same size and quality as the app's shrink() in cut-out.ts, written upright.
+// Same size and quality as the app's shrink() in cut-picture.ts, written upright.
 async function shrink(file) {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
@@ -174,6 +174,7 @@ element("folder").addEventListener("change", (event) => {
   element("rows").replaceChildren();
   element("refused-list").replaceChildren();
   element("progress").textContent = "";
+  element("send").disabled = false;
   showChosen(classify(event.target.files));
 });
 
