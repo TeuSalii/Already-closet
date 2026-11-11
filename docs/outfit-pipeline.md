@@ -301,9 +301,21 @@ ones, it finds exactly the outfits that trying every subset of pieces finds.
 All of this is in `tests/outfit-suggest.test.ts`.
 
 The dev page at `http://localhost:8081/dev/outfits` (with `npx expo start`
-running) shows the same closets with each outfit's score, reasons, and the
-outfits that were dropped and why, so the team can review by eye. Like
-`/dev/test`, it only answers on this computer in development.
+running) shows each outfit's score, reasons, and the outfits that were
+dropped and why, so the team can review by eye. Like `/dev/test`, it only
+answers on this computer in development.
+
+It shows two kinds of closet:
+
+- **Test photos, as pictures.** The test photos (IT-01 to IT-60, "home" and
+  "wish" together) as one closet, with the AI's tags from
+  `logs/ai-calls.jsonl`. Set `OUTFIT_PHOTOS_DIR` in `.env` to the folder that
+  holds them (searched through its subfolders) and restart the dev server.
+  The photos are read where they are and never copied into the project
+  (`src/server/test-photos.ts`). The tags are not checked by a person, so a
+  wrong tag can explain a strange outfit.
+- **The made-up sample closets**, which have no pictures: tags and colour dots
+  only.
 
 What the builder leaves out for now: accessories other than a belt (bag, hat,
 watch, jewellery), and upper-body pieces with no known layer (a vest).

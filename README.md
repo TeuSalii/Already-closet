@@ -33,6 +33,12 @@ The key stays on your computer, in the development server. It is never sent to t
    APP_PASSCODE=your-own-passcode
    ```
 
+   Optional, for the outfit dev page (`/dev/outfits`) to show the test photos as pictures: the folder that holds `IT-01.jpg` and the others. The photos are read there and never copied into the project.
+
+   ```bash
+   OUTFIT_PHOTOS_DIR=/path/to/Research/Testing/Test
+   ```
+
 2. Install the packages exactly as locked:
 
    ```bash
@@ -106,6 +112,7 @@ src/
     theme.ts              colours
   server/
     read-garment.ts       the call to LLM Hub
+    test-photos.ts        the test photos and their logged tags, as a closet for /dev/outfits
     passcode.ts           refuses requests without APP_PASSCODE
     photo-request.ts      the first check on every request carrying a photo
     ai-call-log.ts        one line per AI call in logs/, with secrets removed
