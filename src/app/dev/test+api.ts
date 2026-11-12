@@ -1,4 +1,5 @@
 import { withoutSecrets } from "@/server/ai-call-log";
+import { available, devNav, notFound } from "@/server/dev-page";
 import { refusedPasscode } from "@/server/passcode";
 import { readJsonBody } from "@/server/photo-request";
 import { readGarment } from "@/server/read-garment";
@@ -12,12 +13,6 @@ import { JPEG_QUALITY, MAX_SIDE } from "@/shared/photo-size";
 // program can fake the host name, so sending photos also needs the passcode.
 
 const ID_PATTERN = /^IT-(0[1-9]|[1-5][0-9]|60)$/;
-
-function available(request: Request): boolean {
-  return process.env.NODE_ENV === "development" && request.headers.get("host")?.split(":")[0] === "localhost";
-}
-
-const notFound = () => new Response("Not found", { status: 404 });
 
 export function GET(request: Request) {
   if (!available(request)) return notFound();
@@ -64,6 +59,7 @@ const PAGE = `<!doctype html>
 </style>
 </head>
 <body>
+${devNav("/dev/test")}
 <h1>Closet AI test</h1>
 <p>Choose the folder with the test photos. Every photo is named by its ID: <code>IT-11.jpg</code>.</p>
 <p><input id="passcode" type="password" placeholder="Passcode (APP_PASSCODE in .env)" size="32"></p>

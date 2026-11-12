@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { available, devNav, escape, notFound } from "@/server/dev-page";
 import { loadTestPhotoCloset, PHOTO_TYPES } from "@/server/test-photos";
 import { COLOR_INFO } from "@/shared/outfit/colors";
 import { OCCASION_RULES, type OutfitRequest } from "@/shared/outfit/occasions";
@@ -23,12 +24,6 @@ import { CLOSETS, REQUESTS, TODAY } from "../../../tests/fixtures/closets";
 // No AI and no key. Photos are read from their folder on each request and
 // never leave this computer.
 
-function available(request: Request): boolean {
-  return process.env.NODE_ENV === "development" && request.headers.get("host")?.split(":")[0] === "localhost";
-}
-
-const notFound = () => new Response("Not found", { status: 404 });
-
 export function GET(request: Request) {
   if (!available(request)) return notFound();
   const photos = loadTestPhotoCloset();
@@ -45,9 +40,6 @@ export function GET(request: Request) {
 
   return new Response(page(photos), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
-
-const escape = (text: string) =>
-  text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 
 const ruleText = Object.fromEntries(HARD_RULES.map((rule) => [rule.id, rule.says]));
 
@@ -166,6 +158,7 @@ function page(photos: ReturnType<typeof loadTestPhotoCloset>): string {
 </style>
 </head>
 <body>
+${devNav("/dev/outfits")}
 <h1>Outfit suggestions</h1>
 <p>What the outfit pipeline suggests, with no AI. "Today" is ${TODAY}.
 Score weights: ${Object.entries(WEIGHTS).map(([rule, w]) => `${rule} ${w}`).join(", ")}.

@@ -33,9 +33,11 @@ export function appendAiCall(entry: AiCallEntry): void {
   }
 }
 
-// An error text from LLM Hub could quote what it was sent.
+// An error text from LLM Hub or Gemini could quote what it was sent.
 export function withoutSecrets(message: string): string {
-  const key = process.env.LLM_API_KEY;
-  const noKey = key ? message.replaceAll(key, "[key removed]") : message;
-  return noKey.replace(/[A-Za-z0-9+/=_-]{64,}/g, "[data removed]");
+  let clean = message;
+  for (const key of [process.env.LLM_API_KEY, process.env.GEMINI_API_KEY]) {
+    if (key) clean = clean.replaceAll(key, "[key removed]");
+  }
+  return clean.replace(/[A-Za-z0-9+/=_-]{64,}/g, "[data removed]");
 }

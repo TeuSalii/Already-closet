@@ -92,7 +92,11 @@ export const HARD_RULES: readonly HardRule[] = [
   },
   {
     id: "H3",
-    says: "Each layer is at most 2 steps above the one under it, never on the same step",
+    // Layering 101, "Skip 2 layers – maximum": a T-shirt under a jacket skips
+    // two layers (shirt, sweater) and is fine; under a coat it skips three.
+    // Layering_Rules.md's "no more than two positions apart" was first read as
+    // a gap of 2, which dropped 16% of real outfits in the Fashionpedia check.
+    says: "Each layer skips at most 2 layers below it (a T-shirt under a jacket, not under a coat), never on the same step",
     check(outfit) {
       const worn = layered(outfit);
       for (let i = 1; i < worn.length; i++) {
@@ -100,7 +104,7 @@ export const HARD_RULES: readonly HardRule[] = [
         const over = worn[i];
         const gap = stepOf(over.layer) - stepOf(under.layer);
         if (gap === 0) return `${under.piece.tags.label} and ${over.piece.tags.label} are both a ${over.layer} layer`;
-        if (gap > 2) return `${over.piece.tags.label} over ${under.piece.tags.label}: ${gap} steps apart`;
+        if (gap > 3) return `${over.piece.tags.label} over ${under.piece.tags.label}: ${gap - 1} layers skipped`;
       }
       return null;
     },
@@ -146,10 +150,12 @@ export const HARD_RULES: readonly HardRule[] = [
   },
   {
     id: "H7",
-    says: "At most one bold colour or pattern",
+    says: "At most one bold colour or pattern (a matching set counts once)",
     check(outfit) {
       const standouts = visible(outfit).filter((piece) => piece.tags.pattern !== "solid" || isBold(mainColor(piece)));
-      return standouts.length > 1 ? `${standouts.length} standouts: ${names(standouts)}` : null;
+      // A suit or co-ord set, same pattern and colour top and bottom, is one standout.
+      const looks = new Set(standouts.map((piece) => `${piece.tags.pattern}|${mainColor(piece)}`));
+      return looks.size > 1 ? `${looks.size} standouts: ${names(standouts)}` : null;
     },
   },
   {

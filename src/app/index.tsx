@@ -1,4 +1,5 @@
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
+import { useRef } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,6 +30,7 @@ export default function Closet() {
 
   return (
     <View style={styles.screen}>
+      <Stack.Screen options={{ headerRight: () => <SecretDoor /> }} />
       <FlatList
         data={pieces}
         keyExtractor={(piece) => piece.id}
@@ -72,6 +74,32 @@ export default function Closet() {
   );
 }
 
+// A small square in the header, almost white: five quick taps open the
+// developer screen (passcode, dev pages). Not a secret from anyone who reads
+// this code, just out of the way of test participants. Hidden from screen
+// readers so it isn't announced to them either.
+const TAPS = 5;
+const WITHIN_MS = 1500; // between one tap and the next
+
+function SecretDoor() {
+  const taps = useRef({ count: 0, last: 0 });
+  function tap() {
+    const now = Date.now();
+    const t = taps.current;
+    t.count = now - t.last < WITHIN_MS ? t.count + 1 : 1;
+    t.last = now;
+    if (t.count >= TAPS) {
+      t.count = 0;
+      router.push("/developer");
+    }
+  }
+  return (
+    <Pressable onPress={tap} hitSlop={12} accessible={false} importantForAccessibility="no-hide-descendants" style={styles.door}>
+      <View style={styles.doorSquare} />
+    </Pressable>
+  );
+}
+
 function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
   return (
     <Card photo={piece.photo} badge={piece.origin === "secondhand" ? "Second-hand" : undefined} onPress={onPress}>
@@ -94,6 +122,8 @@ function Tile({ piece, onPress }: { piece: Piece; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.page },
+  door: { padding: 4 },
+  doorSquare: { width: 12, height: 12, backgroundColor: "#F3F2F0" }, // on the white header, barely there
   header: { gap: 4, marginBottom: 4 },
   count: { fontSize: 15, color: colors.soft },
   link: { fontSize: 15, fontWeight: "600", color: colors.secondhand, textDecorationLine: "underline" },

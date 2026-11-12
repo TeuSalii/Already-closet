@@ -39,6 +39,12 @@ The key stays on your computer, in the development server. It is never sent to t
    OUTFIT_PHOTOS_DIR=/path/to/Research/Testing/Test
    ```
 
+   Optional, for `/dev/pieces` (a photo of someone in an outfit → each piece drawn alone on white): a Gemini API key from [Google AI Studio](https://aistudio.google.com), on a project with billing turned on (the free tier can't draw pictures). Each drawing costs a few cents, and the photo is sent to Google. `GEMINI_IMAGE_MODEL` picks another image model; the default is `gemini-3.1-flash-image`.
+
+   ```bash
+   GEMINI_API_KEY=your-gemini-key
+   ```
+
 2. Install the packages exactly as locked:
 
    ```bash
@@ -96,8 +102,11 @@ src/
     coverage.tsx          what is scanned per category, against your own guess
     sweep.tsx             scan one category in one go
     api/tag+api.ts        the API route that runs on your computer
+    api/outfit+api.ts     POST /api/outfit: outfit suggestions (steps 1–4) for the app
+    dev/index+api.ts      http://localhost:8081/dev: links to the pages below (Mac only, development only)
     dev/test+api.ts       test page for the Mac: a folder of photos through the same AI call
     dev/outfits+api.ts    page for the Mac: sample closets and the outfits suggested for them
+    dev/pieces+api.ts     page for the Mac: an outfit photo → each piece tagged and drawn alone on white
   client/                 code that runs on the phone
     closet-context.tsx    the shared closet state for all screens
     passcode-gate.tsx     asks for the passcode once, before the app opens
@@ -112,7 +121,10 @@ src/
     theme.ts              colours
   server/
     read-garment.ts       the call to LLM Hub
+    pick-outfits.ts       step 4: the AI picks 3 from the top scored outfits, with one-line reasons
     test-photos.ts        the test photos and their logged tags, as a closet for /dev/outfits
+    dev-page.ts           what all /dev pages share: localhost only, the links between them
+    outfit-photo.ts       an outfit photo → its pieces (LLM Hub) → each drawn on white (Gemini)
     passcode.ts           refuses requests without APP_PASSCODE
     photo-request.ts      the first check on every request carrying a photo
     ai-call-log.ts        one line per AI call in logs/, with secrets removed

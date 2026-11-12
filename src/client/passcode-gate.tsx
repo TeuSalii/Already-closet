@@ -15,12 +15,15 @@ let lock: (() => void) | null = null;
 
 export const passcodeHeaders = () => ({ [PASSCODE_HEADER]: passcode ?? "" });
 
-// The server said no: the passcode was changed. Ask for it again.
-export function passcodeRejected() {
+// Forgets this phone's passcode and shows the passcode screen again.
+export function lockAgain() {
   passcode = null;
   forgetPasscode().catch(console.warn);
   lock?.();
 }
+
+// The server said no: the passcode was changed. Ask for it again.
+export const passcodeRejected = lockAgain;
 
 export function PasscodeGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<"loading" | "locked" | "open">("loading");

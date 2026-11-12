@@ -83,6 +83,11 @@ describe("layering", () => {
     expect(broken([tee(), tee("black"), jeans(), whiteSneakers()])).toContain("H3");
   });
 
+  // Layering 101, "Skip 2 layers – maximum": ✅ T-shirt → jacket, ❌ T-shirt → coat.
+  it("H3 accepts a T-shirt straight under a jacket: two layers skipped", () => {
+    expect(broken([tee(), jacket(), jeans(), whiteSneakers()])).not.toContain("H3");
+  });
+
   it("H3 accepts a T-shirt under a sweater under a jacket", () => {
     const sweater = piece("gray sweatshirt", { type: "sweater", colors: ["gray"] });
     expect(broken([tee(), sweater, jacket(), jeans(), whiteSneakers()], winter)).not.toContain("H3");
@@ -219,6 +224,14 @@ describe("H7 one standout", () => {
       piece("brown sneakers", { type: "sneakers", colors: ["brown"], material: "leather" }),
     ];
     expect(broken(outfit)).toContain("H7");
+  });
+
+  it("counts a matching patterned suit once", () => {
+    const blazer = piece("gray check blazer", { type: "blazer", colors: ["gray"], pattern: "checkered" });
+    const trousers = piece("gray check trousers", { type: "pants", colors: ["gray"], pattern: "checkered" });
+    expect(broken([tee(), blazer, trousers, whiteSneakers()])).not.toContain("H7");
+    const floral = piece("floral shirt", { type: "shirt", colors: ["white"], pattern: "floral" }, { shirtKind: "casual" });
+    expect(broken([floral, blazer, trousers, whiteSneakers()])).toContain("H7");
   });
 
   it("accepts one bold piece with neutral clothes", () => {

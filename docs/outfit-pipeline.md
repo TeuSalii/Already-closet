@@ -59,11 +59,11 @@ you didn't like one. That's the gap:
 | --- | --- | --- |
 | H1 | One top or one dress, one bottom unless it's a dress, one pair of shoes. Over a dress only a sweater, jacket or coat, not a T-shirt or blouse | Common sense |
 | H2 | At most 3 visible layers on the upper body | Layering_Rules, Layering 101 |
-| H3 | Layer order is base → shirt → sweater → jacket → coat. A piece may go over another only if it is at most 2 steps higher and not on the same step | Layering_Rules |
+| H3 | Layer order is base → shirt → sweater → jacket → coat. A piece may go over another only if it skips at most 2 layers (T-shirt under a jacket is fine, under a coat it isn't) and is not on the same step | Layering 101 ("Skip 2 layers – maximum"); Layering_Rules says "no more than two positions apart", first read as 2 steps, which Test 3 showed was too strict |
 | H4 | A polo is worn alone or under a jacket (bomber, blazer) | Layering_Rules, Layering 101 |
 | H5 | Over a collared shirt (dress shirt, oxford, chambray), only a V-neck sweater | Layering_Rules |
 | H6 | At most 3 colours, not counting neutrals (white, black, gray, navy, beige, cream, tan). A neutral counts if it's a major piece such as a jacket. Accessories don't count unless they dominate | Color rules, Spring & Summer |
-| H7 | At most one bold colour or one pattern other than solid | Layering 101, Spring & Summer |
+| H7 | At most one bold colour or one pattern other than solid. A matching set (same pattern and colour, such as a check suit) counts once | Layering 101, Spring & Summer |
 | H8 | Leather shoes (dress shoes, loafers, boots): belt and leather watch strap are the same colour. Doesn't apply to sneakers | Color rules, Spring & Summer |
 | H9 | Metals match: belt buckle, watch and jewellery are all silver or all gold | Color rules, Spring & Summer |
 | H10 | Every piece is at most one formality step from what the occasion asks for | Dress Codes, `FORMALITIES` order |
@@ -283,7 +283,10 @@ Each rule gets ✅ and ❌ cases. Where the PDFs show an example, use it:
 - Gold necklace and rings + silver belt buckle → breaks H9 (Spring & Summer,
   "Matching metals").
 - T-shirt + collared shirt + sweater + jacket → breaks H2 (Layering 101).
-- T-shirt directly under a coat → breaks H3: more than 2 steps apart.
+- T-shirt directly under a coat → breaks H3: three layers skipped. Directly
+  under a jacket passes: two skipped (Layering 101).
+- Check blazer + matching check trousers → one standout, passes H7; add a
+  floral shirt and it breaks H7.
 - Crew-neck sweater over an oxford shirt → breaks H5.
 - Polo under a sweater → breaks H4.
 
@@ -369,6 +372,58 @@ Licence: the annotations are CC BY 4.0. The images belong to their sources
 (Flickr, Unsplash, Pexels and others), so they're used for testing here and
 never shipped in the app. The data stays out of git.
 
+**How to run it.** Download `instances_attributes_val2020.json` and
+`val_test2020.zip` from the Fashionpedia page into
+`data/fashionpedia/download/` (`data/` is in `.gitignore`), then:
+
+```bash
+python3 -I scripts/fashionpedia/extract.py   # needs numpy and Pillow → data/fashionpedia/outfits.json
+npm run fashionpedia                         # rules and scores → data/fashionpedia/report.md
+```
+
+Only the validation set is used (1,158 photos, every one annotated). 759 of
+them hold one complete outfit; 372 were incomplete, 15 too small to read and
+12 showed more than one person.
+
+**Shuffled outfits as the baseline.** A rule that drops real outfits isn't
+necessarily wrong: people wear clashing clothes too. So each outfit is also
+checked 10 times with each piece's colours and pattern taken from a random
+piece of the same category (shoes take the donor's type too, since white
+shoes are read as sneakers). Same shapes, random colours. A colour rule that
+catches bad combinations should drop many more shuffled outfits than real
+ones; layering rules stay at the same rate in both, by design.
+
+**Results** (after the H3 and H7 fixes below):
+
+| Rule | Real dropped | Shuffled dropped | Reading |
+| --- | --- | --- | --- |
+| H12 black | 29.6% | 45.4% | Prefers real outfits (ratio 1.5), but drops almost a third of them. The biggest question for the rule review |
+| H3 layer gap | 6.9% | same | Was 16.2% when read as "2 steps"; most of that was a T-shirt under a jacket, which Layering 101 allows |
+| H7 one standout | 6.2% | 7.4% | Was 8.2%; matching sets now count once. Ratio 1.2: a weak signal |
+| H13 no jacket on skin | 5.7% | same | Mostly a data artifact: a closed jacket hides the top, so the photo has no top labelled |
+| H1 | 4.6% | same | Tops over dresses in the photos |
+| H5, H6, H15 | under 1% | | |
+| Any judged rule | 42.6% | 56.2% | Colour rules alone: 33.1% vs 49.1% |
+
+Outfits without a dress or skirt (290, closest to menswear) look the same:
+47.6% dropped (shuffled 62.5%), H12 32.8%, H7 8.3%, H13 11.0%.
+
+Soft rules (average points, real vs shuffled):
+
+- S3 shoes match the clothes: real −0.277, shuffled −0.222. Real outfits
+  match shoes to clothes *more* than random ones, so S3 punishes something
+  people do on purpose. To review.
+- S8 tonal: real 2.1% of outfits score, shuffled 0.4%. Works.
+- S9 colour wheel: real 0.9%, shuffled 1.5%. No sign that it helps, which
+  agrees with the Spring & Summer PDF calling the colour wheel useless. Keep
+  its weight low or drop it.
+- S1 is the same for both.
+
+**Limits.** The photos are mostly womenswear (353 of 759 have a dress), and
+reading colours from pixels leans towards black in shadows, which inflates
+H12. Fashionpedia says nothing about formality, season, metal or most
+materials, so H8–H11, H14 and H16 are not judged here.
+
 ### Test 4: the AI step
 
 From `logs/ai-calls.jsonl`, per prompt version:
@@ -402,13 +457,22 @@ From `logs/ai-calls.jsonl`, per prompt version:
    **Done:** shirt kind, neckline and metal are asked of the AI; older pieces
    get "Please check" (see "What the tags need first").
 4. Fashionpedia check (Test 3), then adjust rules and weights.
+   **Done:** `scripts/fashionpedia/`. H3 now allows two skipped layers and H7
+   counts a matching set once. H12, S3 and S9 are left for the rule review.
 5. AI step, `POST /api/outfit` and Test 4.
+   **Done:** `src/server/pick-outfits.ts` and `src/app/api/outfit+api.ts`.
+   The AI picks 3 from the top 10 by score; falls back to the top 3 if any
+   returned index is out of range or the call fails. Test 4 is an analysis
+   of `logs/ai-calls.jsonl` entries with `source: "outfit-api"`.
 6. Outfit screen in the app with feedback and the wear log, then Test 5.
 
 Steps 1 and 2 can start right away and don't depend on anything else.
 
 ## Open questions
 
+- Rule review (end of this task): H12 strictness (drops 30% of real
+  outfits), S3 sign, S9 weight, coat in winter, joggers, polo under a blazer
+  at a cocktail.
 - The real business casual rules from Christoph.
 - Rules for dresses, skirts and blouses.
 - Weather: ask the person ("cold / mild / warm") or use a weather service.
