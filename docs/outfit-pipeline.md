@@ -468,14 +468,117 @@ From `logs/ai-calls.jsonl`, per prompt version:
 
 Steps 1 and 2 can start right away and don't depend on anything else.
 
-## Open questions
+## Decisions
 
-- Rule review (end of this task): H12 strictness (drops 30% of real
-  outfits), S3 sign, S9 weight, coat in winter, joggers, polo under a blazer
-  at a cocktail.
+The following were open questions after Test 3. Each decision and its code
+implication is recorded here.
+
+### Rules and scoring
+
+**H12 (black clothing) → dropped as a hard rule.**
+The black-link logic (black clothes = black shoes + black belt) is removed
+from `rules.ts`. It is replaced by a new soft scoring rule in `score.ts`:
+when a belt is worn, belt and shoes that do not match each other receive a
+small penalty. No belt worn → no penalty. This keeps the genuine insight
+(belt and shoes should coordinate) without blocking 30% of real outfits.
+
+**S3 (shoe contrast) → sign corrected, shape changed.**
+The old rule rewarded shoes that differed from the outfit colour; real data
+showed people do the opposite. The new S3 in `score.ts` rewards both ends
+of the spectrum: tonal matching (shoes close to the outfit's colour) and
+clear contrast (shoes clearly different). Only near-miss colours — almost
+matching but not quite — receive a penalty. The score is U-shaped rather
+than linear.
+
+**S9 (colour-wheel harmony) → kept at low weight.**
+The data showed no signal, but the weight is already low enough that it
+cannot flip a ranking on its own. It stays so that the AI-learning step
+(see Explanations below) can later measure whether users' actual choices
+confirm or contradict it, and the weight can be tuned or dropped then.
+
+### Garment-specific rules (dresses, skirts, blouses)
+
+Built before launch, in `rules.ts`, per garment type rather than as a
+"womenswear" block — so they apply to anyone who wears them:
+
+- A dress covers both a top and a bottom. The only outer layers that go over
+  it are a cardigan, jacket or coat (not a T-shirt or blouse).
+- A skirt pairs with the same tops as a dress bottom would.
+- A blouse follows the same layering rules as a shirt but without the
+  collared-shirt neckline constraint (H5).
+- In winter, a dress may need tights (counted as the base layer) and a coat.
+
+These rules are designed together with the warmth rule (see below) since
+cold-weather dress outfits are where the gaps are most visible.
+
+### Warmth rule
+
+A soft rule that rewards outfits suited to the weather is added, but only
+after user settings exist — so it can account for personal factors (someone
+who tends to run cold may always want a coat). Until then, the season field
+on each piece (H11) is the only weather signal.
+
+### Weather input
+
+Hybrid: forecast as the default (device location, asked only when the
+outfit screen first opens — not at app launch), one-tap override so the
+user can correct it, and calendar connection as a later opt-in. The
+warmth rule and the coat-in-winter gap both feed from this input, so the
+weather step and the warmth rule ship together.
+
+### Explanations and personal style
+
+Constrained AI: the model receives the actual scored reasons for each outfit
+("navy + white proven pair", "darkest layer outside") plus any observed
+patterns from the user's own choices ("you have often paired these"). It
+rewrites them into one natural sentence. Because the reasons are given, the
+AI cannot invent a justification that contradicts the score.
+
+The tone is never judgmental. The app does not tell people that something
+does not go together — style is personal. The rules are a starting point.
+When the AI notices that a user consistently picks outfits it did not
+suggest, or swaps a particular type of piece, it updates the weights of the
+soft rules for that user. S9 (colour wheel) is one candidate for this
+per-user tuning.
+
+### Open (still)
+
 - The real business casual rules from Christoph.
-- Rules for dresses, skirts and blouses.
-- Weather: ask the person ("cold / mild / warm") or use a weather service.
-  Asking keeps the app without accounts or location.
-- Whether the explanation sentence comes from the rules (always correct) or
-  from the AI (reads better, can be wrong).
+- Joggers for casual: sport is one formality step from casual, so gray
+  joggers can appear next to an oxford. A style penalty or a stricter
+  mapping may be needed.
+- Polo under a blazer at a cocktail evening: passes every hard rule but
+  a stylist would likely disagree. Needs Test 5 to decide.
+
+---
+
+## Capsule wardrobe
+
+A capsule wardrobe is a small set of versatile pieces that combine into
+many outfits. The app's data — a full scanned wardrobe, wear dates, and
+the ability to enumerate every valid outfit — makes this a natural fit.
+
+Three views, all derived from what the pipeline already computes:
+
+**Versatility score per piece.** For each item, count how many valid
+outfits (passing all hard rules, for a fixed occasion and season) it
+appears in. Items that appear in many outfits are anchors; items that
+appear in very few are candidates for removal or replacement.
+
+**Rarely worn.** Already tracked via S10. Surface pieces that have not
+been worn for a long time alongside how many outfits they enable, so the
+user can decide whether to wear them more or let them go.
+
+**"One new piece" suggestion.** Run the pipeline on a hypothetical
+expanded closet: for each piece type and colour the user does not own,
+count how many new valid outfits it would unlock. Surface the top few.
+This is the sustainability argument made concrete: buy one thing that
+works with what you already own rather than a collection that only works
+together.
+
+These three support the app's three core arguments:
+- **Sustainability:** wear what you own more often; buy less and more
+  deliberately.
+- **Efficiency:** less time deciding; every suggestion is already known
+  to work.
+- **Optimisation:** a wardrobe where everything works with everything.
