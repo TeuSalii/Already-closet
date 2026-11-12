@@ -84,11 +84,16 @@ const PAGE = `<!doctype html>
   .card .text { padding: 8px 12px 12px; border-top: 1px solid #eee; }
   .card small { color: #666; }
   .card button { padding: 4px 10px; font-size: 13px; }
-  #crop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  #crop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
   #crop-modal.open { display: flex; }
-  #crop-canvas { cursor: crosshair; display: block; max-width: 90vw; max-height: 80vh; }
-  #crop-actions { display: flex; gap: 8px; }
-  #crop-actions button { background: #fff; padding: 8px 16px; }
+  #crop-canvas { cursor: crosshair; display: block; max-width: 90vw; max-height: 75vh; }
+  #crop-toolbar { display: flex; align-items: center; gap: 8px; }
+  .crop-tool { width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.4); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; padding: 0; margin: 0; font: inherit; }
+  .crop-tool:hover { border-color: rgba(255,255,255,0.7); }
+  .crop-tool-chosen { background: white; color: #26221E; border-color: white; }
+  #crop-confirm { font: inherit; padding: 10px 24px; border-radius: 999px; background: white; border: none; cursor: pointer; font-weight: 600; color: #26221E; margin: 0; }
+  #crop-confirm:disabled { opacity: 0.35; cursor: default; }
+  #crop-cancel { font: inherit; padding: 10px 16px; border-radius: 999px; background: transparent; border: 1.5px solid rgba(255,255,255,0.4); color: white; cursor: pointer; margin: 0; }
 </style>
 </head>
 <body>
@@ -111,8 +116,26 @@ people who agreed. Drawing needs billing on for the Gemini key and costs a few c
 <div id="cards"></div>
 <div id="crop-modal">
   <canvas id="crop-canvas"></canvas>
-  <div id="crop-actions">
-    <button id="crop-confirm">Use this crop</button>
+  <div id="crop-toolbar">
+    <button id="crop-draw" class="crop-tool crop-tool-chosen" title="Draw around it" aria-label="Draw around it">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5.42 9.42 8 12"/><circle cx="4" cy="8" r="2"/><path d="m14 6-8.58 8.58"/>
+        <circle cx="4" cy="16" r="2"/><path d="M10.8 14.8 14 18"/><path d="M16 12h-2"/><path d="M22 12h-2"/>
+      </svg>
+    </button>
+    <button id="crop-frame" class="crop-tool" title="Frame" aria-label="Frame">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" x2="2" y1="6" y2="6"/><line x1="22" x2="2" y1="18" y2="18"/>
+        <line x1="6" x2="6" y1="2" y2="22"/><line x1="18" x2="18" y1="2" y2="22"/>
+      </svg>
+    </button>
+    <button id="crop-restart" class="crop-tool" title="Start over" aria-label="Start over">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.586 16.061a7 7 0 1 0 0-8.122L3.75 10.75"/><path d="M3.75 4.75v6h6"/>
+      </svg>
+    </button>
+    <div style="flex:1"></div>
+    <button id="crop-confirm" disabled>Cut out</button>
     <button id="crop-cancel">Cancel</button>
   </div>
 </div>
@@ -273,78 +296,173 @@ element("draw").addEventListener("click", async () => {
   element("draw").disabled = false;
 });
 
-// Crop modal — drag a bounding box over the original photo to cut out one piece.
+// Crop modal — draw around or frame a piece to cut it from the original photo.
+// Two modes, matching the mobile cut screen: freehand lasso (scissors icon)
+// and rectangle frame. Outside the selection is dimmed once the shape is valid.
 let cropCallback = null;
-let cropStart = null;
-let cropEnd = null;
 let cropBitmap = null;
+let cropMode = "draw"; // "draw" | "frame"
+let cropPoints = []; // display-coord {x,y} points of the current shape
+let cropDrawing = false; // true while mouse is held in draw mode
+let cropFrameStart = null; // anchor point for frame mode
+
+const MIN_CROP_PX = 10;
+
+function framePoints(a, b) {
+  return [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }];
+}
+
+function getShapePoints() {
+  if (cropMode === "frame" && cropPoints.length >= 2) return framePoints(cropPoints[0], cropPoints[1]);
+  return cropPoints;
+}
+
+function cropIsValid() {
+  if (cropDrawing) return false;
+  const pts = getShapePoints();
+  if (pts.length < 3) return false;
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  return (Math.max(...xs) - Math.min(...xs)) >= MIN_CROP_PX &&
+         (Math.max(...ys) - Math.min(...ys)) >= MIN_CROP_PX;
+}
 
 function drawCropCanvas() {
   const canvas = element("crop-canvas");
   const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(cropBitmap, 0, 0, canvas.width, canvas.height);
-  if (cropStart && cropEnd) {
-    const x = Math.min(cropStart.x, cropEnd.x);
-    const y = Math.min(cropStart.y, cropEnd.y);
-    const w = Math.abs(cropEnd.x - cropStart.x);
-    const h = Math.abs(cropEnd.y - cropStart.y);
-    ctx.fillStyle = "rgba(255,255,255,0.1)";
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 3]);
-    ctx.strokeRect(x, y, w, h);
+
+  const pts = getShapePoints();
+  if (pts.length < 2) { element("crop-confirm").disabled = true; return; }
+
+  // Dim outside the selection once the shape is closed and valid
+  if (cropIsValid()) {
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.beginPath();
+    ctx.rect(0, 0, canvas.width, canvas.height);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.fill("evenodd");
+    ctx.restore();
   }
+
+  // Outline: thick dark stroke + thin white stroke, like the mobile screen
+  const closed = !cropDrawing || cropMode === "frame";
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  if (closed) ctx.closePath();
+  ctx.setLineDash([]);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#26221E";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  element("crop-confirm").disabled = !cropIsValid();
+}
+
+function setCropMode(mode) {
+  cropMode = mode;
+  cropPoints = [];
+  cropFrameStart = null;
+  cropDrawing = false;
+  element("crop-draw").className = "crop-tool" + (mode === "draw" ? " crop-tool-chosen" : "");
+  element("crop-frame").className = "crop-tool" + (mode === "frame" ? " crop-tool-chosen" : "");
 }
 
 async function openCropModal(onConfirm) {
   cropCallback = onConfirm;
-  cropStart = null;
-  cropEnd = null;
+  setCropMode("draw");
   const response = await fetch("data:image/jpeg;base64," + photoBase64);
   const blob = await response.blob();
   cropBitmap = await createImageBitmap(blob);
   const canvas = element("crop-canvas");
   const maxW = window.innerWidth * 0.9;
-  const maxH = window.innerHeight * 0.8;
+  const maxH = window.innerHeight * 0.75;
   const scale = Math.min(1, maxW / cropBitmap.width, maxH / cropBitmap.height);
   canvas.width = Math.round(cropBitmap.width * scale);
   canvas.height = Math.round(cropBitmap.height * scale);
-  drawCropCanvas();
+  element("crop-toolbar").style.width = canvas.width + "px";
+  ctx_drawInitial(canvas);
+  element("crop-confirm").disabled = true;
   element("crop-modal").classList.add("open");
 }
 
+function ctx_drawInitial(canvas) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(cropBitmap, 0, 0, canvas.width, canvas.height);
+}
+
+element("crop-draw").addEventListener("click", () => { setCropMode("draw"); ctx_drawInitial(element("crop-canvas")); element("crop-confirm").disabled = true; });
+element("crop-frame").addEventListener("click", () => { setCropMode("frame"); ctx_drawInitial(element("crop-canvas")); element("crop-confirm").disabled = true; });
+element("crop-restart").addEventListener("click", () => { cropPoints = []; cropFrameStart = null; cropDrawing = false; ctx_drawInitial(element("crop-canvas")); element("crop-confirm").disabled = true; });
+
 element("crop-canvas").addEventListener("mousedown", (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
-  cropStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  cropEnd = { ...cropStart };
-});
-element("crop-canvas").addEventListener("mousemove", (e) => {
-  if (!cropStart) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  cropEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  if (cropMode === "draw") {
+    cropDrawing = true;
+    cropPoints = [pt];
+  } else {
+    cropFrameStart = pt;
+    cropPoints = [pt, pt];
+  }
   drawCropCanvas();
 });
-element("crop-canvas").addEventListener("mouseup", () => { /* selection stays */ });
+
+element("crop-canvas").addEventListener("mousemove", (e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  if (cropMode === "draw" && cropDrawing) {
+    const last = cropPoints[cropPoints.length - 1];
+    if ((pt.x - last.x) ** 2 + (pt.y - last.y) ** 2 >= 9) {
+      cropPoints = [...cropPoints, pt];
+      drawCropCanvas();
+    }
+  } else if (cropMode === "frame" && cropFrameStart) {
+    cropPoints = [cropFrameStart, pt];
+    drawCropCanvas();
+  }
+});
+
+element("crop-canvas").addEventListener("mouseup", (e) => {
+  if (cropMode === "draw" && cropDrawing) {
+    cropDrawing = false;
+    drawCropCanvas();
+  } else if (cropMode === "frame" && cropFrameStart) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    cropPoints = [cropFrameStart, { x: e.clientX - rect.left, y: e.clientY - rect.top }];
+    cropFrameStart = null;
+    drawCropCanvas();
+  }
+});
+
+element("crop-canvas").addEventListener("mouseleave", () => {
+  if (cropMode === "draw" && cropDrawing) { cropDrawing = false; drawCropCanvas(); }
+});
 
 element("crop-confirm").addEventListener("click", () => {
-  if (!cropStart || !cropEnd || !cropBitmap) return;
+  if (!cropIsValid() || !cropBitmap) return;
   const canvas = element("crop-canvas");
-  const w = Math.abs(cropEnd.x - cropStart.x);
-  const h = Math.abs(cropEnd.y - cropStart.y);
-  if (w < 10 || h < 10) return;
+  const pts = getShapePoints();
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
   const scaleX = cropBitmap.width / canvas.width;
   const scaleY = cropBitmap.height / canvas.height;
-  const sx = Math.round(Math.min(cropStart.x, cropEnd.x) * scaleX);
-  const sy = Math.round(Math.min(cropStart.y, cropEnd.y) * scaleY);
-  const sw = Math.round(w * scaleX);
-  const sh = Math.round(h * scaleY);
+  const sx = Math.round(minX * scaleX), sy = Math.round(minY * scaleY);
+  const sw = Math.round((maxX - minX) * scaleX), sh = Math.round((maxY - minY) * scaleY);
   const out = document.createElement("canvas");
-  out.width = sw;
-  out.height = sh;
+  out.width = sw; out.height = sh;
   out.getContext("2d").drawImage(cropBitmap, sx, sy, sw, sh, 0, 0, sw, sh);
-  const dataUrl = out.toDataURL("image/jpeg", JPEG_QUALITY);
-  const base64 = dataUrl.split(",")[1];
+  const base64 = out.toDataURL("image/jpeg", JPEG_QUALITY).split(",")[1];
   element("crop-modal").classList.remove("open");
   if (cropCallback) cropCallback(base64, "image/jpeg");
 });
