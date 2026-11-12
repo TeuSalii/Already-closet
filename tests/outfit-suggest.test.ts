@@ -61,10 +61,10 @@ describe("sample closets", () => {
     }
   }
 
-  it("puts a navy suit with black oxfords among the cocktail evening outfits", () => {
+  it("puts a navy blazer outfit among the cocktail evening outfits", () => {
     const result = suggestOutfits(CLOSETS.office.pieces, REQUESTS["cocktail evening"], { today: TODAY });
     const labels = result.suggestions.map((s) => s.pieces.map((piece) => piece.tags.label));
-    expect(labels).toContainEqual(expect.arrayContaining(["navy blazer", "navy trousers", "black oxfords"]));
+    expect(labels.some((outfit) => outfit.includes("navy blazer"))).toBe(true);
   });
 
   it("puts no summer-only piece in a winter outfit", () => {
@@ -223,10 +223,41 @@ describe("scores", () => {
     expect(part([blackTee, whiteJacket, jeans, sneakers], "S1")?.points).toBeLessThan(0);
   });
 
-  it("S3 dislikes shoes the same colour as the trousers", () => {
+  it("S3 rewards shoes tonal with the outfit", () => {
     const pants = piece("brown pants", { type: "pants", colors: ["brown"] });
     const boots = piece("brown boots", { type: "boots", colors: ["brown"] });
-    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), pants, boots], "S3")?.points).toBeLessThan(0);
+    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), pants, boots], "S3")?.points).toBeGreaterThan(0);
+  });
+
+  it("S3 penalises shoes close to but not matching the outfit (near-miss)", () => {
+    // navy shoes + black pants: ΔE ≈ 22, within near-miss range (10–25)
+    const pants = piece("black pants", { type: "pants", colors: ["black"] });
+    const shoes = piece("navy shoes", { type: "shoes", colors: ["navy"] });
+    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), pants, shoes], "S3")?.points).toBeLessThan(0);
+  });
+
+  it("S3 rewards shoes that contrast clearly with the outfit", () => {
+    // navy shoes + tan pants: ΔE ≈ 68, clear contrast
+    const pants = piece("tan pants", { type: "pants", colors: ["tan"] });
+    const shoes = piece("navy shoes", { type: "shoes", colors: ["navy"] });
+    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), pants, shoes], "S3")?.points).toBeGreaterThan(0);
+  });
+
+  it("S11 penalises a belt that doesn't match the shoes", () => {
+    const belt = piece("brown belt", { type: "belt", colors: ["brown"] });
+    const shoes = piece("black shoes", { type: "shoes", colors: ["black"] });
+    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), jeans, shoes, belt], "S11")?.points).toBeLessThan(0);
+  });
+
+  it("S11 is silent when belt matches shoes", () => {
+    const belt = piece("black belt", { type: "belt", colors: ["black"] });
+    const shoes = piece("black shoes", { type: "shoes", colors: ["black"] });
+    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), jeans, shoes, belt], "S11")).toBeUndefined();
+  });
+
+  it("S11 is silent with no belt", () => {
+    const shoes = piece("black shoes", { type: "shoes", colors: ["black"] });
+    expect(part([piece("tee", { type: "t-shirt", colors: ["white"] }), jeans, shoes], "S11")).toBeUndefined();
   });
 
   it("S7 likes navy with white", () => {

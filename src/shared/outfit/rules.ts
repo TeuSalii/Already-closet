@@ -199,30 +199,6 @@ export const HARD_RULES: readonly HardRule[] = [
     },
   },
   {
-    id: "H12",
-    says: "Black clothes: black shoes and belt, or white sneakers. No black clothes: no black shoes or belt",
-    check(outfit) {
-      const clothes = visible(outfit).filter((piece) => category(piece) !== "shoes");
-      const shoes = ofCategory(outfit, "shoes")[0];
-      const belts = outfit.filter((piece) => piece.tags.type === "belt");
-      const hasBlack = clothes.some((piece) => mainColor(piece) === "black");
-      if (hasBlack) {
-        if (shoes && !isWhiteSneakers(shoes) && mainColor(shoes) !== "black") return `black in the outfit, but ${shoes.tags.label}`;
-        const wrongBelts = belts.filter((belt) => mainColor(belt) !== "black");
-        return wrongBelts.length > 0 ? `black in the outfit, but ${names(wrongBelts)}` : null;
-      }
-      // Exceptions: a navy suit takes black shoes, and an outfit of only
-      // gray and white takes a black belt (Spring & Summer, matching leathers).
-      const navySuit = ["blazer", "pants"].every((type) =>
-        clothes.some((piece) => piece.tags.type === type && mainColor(piece) === "navy"),
-      );
-      const grayAndWhite = clothes.every((piece) => piece.tags.colors.every((color) => color === "gray" || color === "white"));
-      if (navySuit || grayAndWhite) return null;
-      const wrong = [...(shoes ? [shoes] : []), ...belts].filter((piece) => mainColor(piece) === "black");
-      return wrong.length > 0 ? `no black in the outfit, but ${names(wrong)}` : null;
-    },
-  },
-  {
     id: "H13",
     says: "A base layer, shirt, sweater or dress is worn: no jacket on bare skin",
     check(outfit) {

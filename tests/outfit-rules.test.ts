@@ -300,48 +300,6 @@ describe("H10 formality and H11 season", () => {
   });
 });
 
-describe("H12 black", () => {
-  const blackJeans = () => piece("black jeans", { type: "jeans", colors: ["black"], material: "denim" });
-
-  // Spring & Summer, "Matching shoes": a tan jacket, white tee and light
-  // jeans with black loafers. "The outfit contains no black which is why the
-  // black shoes feel so heavy and dark."
-  it("refuses black loafers with no black in the outfit", () => {
-    const outfit = [
-      tee("white"),
-      piece("tan overshirt", { type: "jacket", colors: ["tan"] }),
-      piece("light jeans", { type: "jeans", colors: ["light-blue"], material: "denim" }),
-      piece("black loafers", { type: "shoes", colors: ["black"], material: "leather" }),
-    ];
-    expect(broken(outfit)).toContain("H12");
-  });
-
-  it("refuses brown boots with black jeans, accepts white sneakers", () => {
-    const boots = piece("brown boots", { type: "boots", colors: ["brown"], material: "leather" });
-    expect(broken([tee(), blackJeans(), boots])).toContain("H12");
-    expect(broken([tee(), blackJeans(), whiteSneakers()])).not.toContain("H12");
-  });
-
-  it("wants the belt black when the outfit has black", () => {
-    const belt = piece("brown belt", { type: "belt", colors: ["brown"], material: "leather" });
-    expect(broken([tee(), blackJeans(), whiteSneakers(), belt])).toContain("H12");
-  });
-
-  it("allows black shoes with a navy suit", () => {
-    const suit = [
-      piece("white shirt", { type: "shirt", colors: ["white"], formality: "formal" }),
-      piece("navy blazer", { type: "blazer", colors: ["navy"], formality: "formal" }),
-      piece("navy trousers", { type: "pants", colors: ["navy"], formality: "formal" }),
-      piece("black oxfords", { type: "shoes", colors: ["black"], material: "leather", formality: "formal" }),
-    ];
-    expect(broken(suit, { occasion: "formal", season: "transitional", time: "evening" })).not.toContain("H12");
-  });
-
-  it("allows a black belt when the outfit is only gray and white", () => {
-    const outfit = [tee("white"), piece("gray pants", { type: "pants", colors: ["gray"] }), whiteSneakers(), piece("black belt", { type: "belt", colors: ["black"] })];
-    expect(broken(outfit)).not.toContain("H12");
-  });
-});
 
 it("every hard rule is broken by at least one test outfit", () => {
   // Guards against a rule that can never fire, e.g. after a typo in a type name.
@@ -353,7 +311,6 @@ it("every hard rule is broken by at least one test outfit", () => {
     [[piece("r", { type: "t-shirt", colors: ["red"] }), piece("y", { type: "pants", colors: ["yellow"] }), piece("p", { type: "jacket", colors: ["purple"] }), piece("o", { type: "sneakers", colors: ["orange"] })], casualDay],
     [[tee(), jeans(), piece("boots", { type: "boots", colors: ["brown"], material: "leather" }), piece("belt", { type: "belt", colors: ["tan"] }, { metal: "gold" }), piece("w", { type: "accessories", colors: ["silver"] }, { metal: "silver" })], casualDay],
     [[piece("hoodie", { type: "hoodie", colors: ["gray"], season: "winter" }), jeans(), whiteSneakers()], { occasion: "formal", season: "summer", time: "day" }],
-    [[tee("black"), jeans(), piece("tan boots", { type: "boots", colors: ["tan"] })], casualDay],
     [[piece("jacket", { type: "jacket", colors: ["navy"] }), jeans(), whiteSneakers()], casualDay],
     [[piece("flannel", { type: "shirt", colors: ["green"] }, { shirtKind: "flannel" }), piece("sw", { type: "sweater", colors: ["gray"] }), jeans(), whiteSneakers()], casualDay],
     [[piece("shirt", { type: "shirt", colors: ["blue"] }, { shirtKind: "casual" }), piece("cardigan", { type: "cardigan", colors: ["gray"] }), jeans(), whiteSneakers()], casualDay],
