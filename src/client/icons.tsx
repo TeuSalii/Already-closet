@@ -1,4 +1,4 @@
-import Svg, { Circle, Line, Path } from "react-native-svg";
+import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 
 // The app's icons, all drawn the Lucide way (24 × 24, 2 px stroke, round
 // ends) so they look alike. Kept here instead of imported from
@@ -49,6 +49,34 @@ export function FrameIcon({ size = 24, color = "black" }: IconProps) {
       <Line x1="22" x2="2" y1="18" y2="18" {...line} />
       <Line x1="6" x2="6" y1="2" y2="22" {...line} />
       <Line x1="18" x2="18" y1="2" y2="22" {...line} />
+    </Svg>
+  );
+}
+
+// Tab bar icons.
+
+export function ShirtIcon({ size = 24, color = "black" }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function GridIcon({ size = 24, color = "black" }: IconProps) {
+  const r = { stroke: color, strokeWidth: 2, strokeLinejoin: "round" } as const;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="8" height="8" rx="1" {...r} />
+      <Rect x="13" y="3" width="8" height="8" rx="1" {...r} />
+      <Rect x="3" y="13" width="8" height="8" rx="1" {...r} />
+      <Rect x="13" y="13" width="8" height="8" rx="1" {...r} />
     </Svg>
   );
 }
