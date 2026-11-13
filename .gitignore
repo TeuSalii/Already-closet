@@ -12,3 +12,9 @@ expo-env.d.ts
 
 # Editor settings (personal to each machine)
 .idea/
+
+# Log of every AI call
+logs/
+
+# Downloaded datasets (Fashionpedia): large, and the images aren't ours to share
+data/

@@ -1,0 +1,14 @@
+[
+  { "id": "s-tee-white", "label": "white tee", "type": "t-shirt", "colors": ["white"], "pattern": "solid", "material": "cotton", "season": "all-year", "formality": "casual", "style": "minimalist", "lastWorn": "2026-11-08" },
+  { "id": "s-tee-black", "label": "black tee", "type": "t-shirt", "colors": ["black"], "pattern": "solid", "material": "cotton", "season": "all-year", "formality": "casual", "style": "minimalist" },
+  { "id": "s-blouse", "label": "cream silk blouse", "type": "blouse", "colors": ["cream"], "pattern": "solid", "material": "silk", "season": "all-year", "formality": "smart-casual", "style": "romantic", "lastWorn": "2026-08-30" },
+  { "id": "s-dress-floral", "label": "floral summer dress", "type": "dress", "colors": ["blue", "white"], "pattern": "floral", "material": "cotton", "season": "summer", "formality": "casual", "style": "romantic" },
+  { "id": "s-dress-black", "label": "black dress", "type": "dress", "colors": ["black"], "pattern": "solid", "material": "polyester", "season": "all-year", "formality": "smart-casual", "style": "minimalist", "lastWorn": "2026-06-14" },
+  { "id": "s-skirt-denim", "label": "denim skirt", "type": "skirt", "colors": ["blue"], "pattern": "solid", "material": "denim", "season": "all-year", "formality": "casual", "style": "vintage" },
+  { "id": "s-trousers-black", "label": "black trousers", "type": "pants", "colors": ["black"], "pattern": "solid", "material": "polyester", "season": "all-year", "formality": "smart-casual", "style": "minimalist", "lastWorn": "2026-11-10" },
+  { "id": "s-cardigan", "label": "beige cardigan", "type": "cardigan", "colors": ["beige"], "pattern": "solid", "material": "knit", "season": "transitional", "formality": "casual", "style": "classic" },
+  { "id": "s-denim-jacket", "label": "denim jacket", "type": "jacket", "colors": ["blue"], "pattern": "solid", "material": "denim", "season": "transitional", "formality": "casual", "style": "vintage" },
+  { "id": "s-sneakers-white", "label": "white sneakers", "type": "sneakers", "colors": ["white"], "pattern": "solid", "material": "canvas", "season": "all-year", "formality": "casual", "style": "minimalist", "lastWorn": "2026-11-10" },
+  { "id": "s-boots-black", "label": "black ankle boots", "type": "boots", "colors": ["black"], "pattern": "solid", "material": "leather", "season": "all-year", "formality": "smart-casual", "style": "minimalist" },
+  { "id": "s-sandals", "label": "tan sandals", "type": "sandals", "colors": ["tan"], "pattern": "solid", "material": "leather", "season": "summer", "formality": "casual", "style": "minimalist" }
+]
