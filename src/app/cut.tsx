@@ -1,4 +1,4 @@
-import { Canvas, Group, Image as SkiaImage, Path, Rect, Skia, type SkImage, type SkPoint } from "@shopify/react-native-skia";
+import { Canvas, Circle, Group, Image as SkiaImage, Path, Rect, Skia, type SkImage, type SkPoint } from "@shopify/react-native-skia";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { type ComponentType, useEffect, useRef, useState } from "react";
@@ -17,6 +17,8 @@ import { colors } from "@/client/theme";
 type Mode = "draw" | "frame";
 
 const MIN_SIZE = 40; // on screen, in points: smaller is a slip of the finger
+const CLOSE_SNAP = 36; // points from the start dot that triggers auto-close on lift
+const ZOOM_LEVELS = [1, 2, 3] as const;
 
 export default function CutScreen() {
   // Read once: the request belongs to this screen for as long as it is open.
@@ -31,6 +33,11 @@ export default function CutScreen() {
   const [drawing, setDrawing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rotating, setRotating] = useState(false);
+  const [zoom, setZoom] = useState<1 | 2 | 3>(1);
+  const [nearOrigin, setNearOrigin] = useState(false);
+  // The last raw touch position, used in release() to snap-to-start without
+  // relying on the nearOrigin state which may be one render behind.
+  const lastRaw = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (params === null) return;
@@ -69,13 +76,26 @@ export default function CutScreen() {
   }
 
   // Where the picture sits on screen ("contain": all of it, centred).
+  // At zoom > 1 the image is scaled up around the centre of the canvas so
+  // the person can draw more precisely.  All lasso coordinates stay in
+  // screen space; only the fit box shifts, so the existing lasso logic and
+  // the cut-to-pixel conversion both work without change.
   const fit =
     image !== null && area !== null
       ? (() => {
-          const scale = Math.min(area.width / image.width(), area.height / image.height());
-          const width = image.width() * scale;
-          const height = image.height() * scale;
-          return { scale, x: (area.width - width) / 2, y: (area.height - height) / 2, width, height };
+          const baseScale = Math.min(area.width / image.width(), area.height / image.height());
+          const baseX = (area.width - image.width() * baseScale) / 2;
+          const baseY = (area.height - image.height() * baseScale) / 2;
+          const scale = baseScale * zoom;
+          const cx = area.width / 2;
+          const cy = area.height / 2;
+          return {
+            scale,
+            x: cx - (cx - baseX) * zoom,
+            y: cy - (cy - baseY) * zoom,
+            width: image.width() * scale,
+            height: image.height() * scale,
+          };
         })()
       : null;
 
@@ -92,21 +112,49 @@ export default function CutScreen() {
   function start(event: GestureResponderEvent) {
     if (fit === null) return;
     setDrawing(true);
+    setNearOrigin(false);
+    lastRaw.current = null;
     setPoints([place(at(event), fit)]);
   }
 
   function move(event: GestureResponderEvent) {
     if (fit === null) return;
     const raw = at(event);
-    // Empty if the finger came down before the picture was ready.
+    lastRaw.current = raw;
     setPoints((current) =>
       mode === "frame" && current.length > 0 ? [current[0], place(raw, fit)] : extend(current, raw, fit),
     );
+    if (mode === "draw") {
+      setNearOrigin(
+        points.length >= 3 &&
+          Math.hypot(raw.x - points[0].x, raw.y - points[0].y) < CLOSE_SNAP,
+      );
+    }
   }
 
   function release() {
     setDrawing(false);
-    if (mode === "draw" && fit !== null) setPoints((current) => close(current, fit));
+    setNearOrigin(false);
+    if (mode === "draw" && fit !== null) {
+      const raw = lastRaw.current;
+      lastRaw.current = null;
+      setPoints((current) => {
+        if (current.length < 3) return close(current, fit);
+        // Snap to the starting point when the finger lifts close enough to it.
+        const shouldSnap =
+          raw !== null && Math.hypot(raw.x - current[0].x, raw.y - current[0].y) < CLOSE_SNAP;
+        const pts = shouldSnap ? [...current.slice(0, -1), { ...current[0] }] : current;
+        return close(pts, fit);
+      });
+    }
+  }
+
+  // Closes the current draw path without needing to return to the start.
+  function closeShape() {
+    if (fit === null || mode !== "draw" || points.length < 3) return;
+    setDrawing(false);
+    setNearOrigin(false);
+    setPoints((current) => close(current, fit));
   }
 
   // A light tap when the line catches the picture's edge, so the snap is
@@ -123,6 +171,8 @@ export default function CutScreen() {
     if (prepared === null || rotating || busy) return;
     setRotating(true);
     setPoints([]);
+    setZoom(1);
+    setNearOrigin(false);
     try {
       const next = await rotateCw(prepared.uri);
       made.add(next.uri);
@@ -201,6 +251,15 @@ export default function CutScreen() {
                 <Path path={shape} style="stroke" strokeWidth={2} color="white" strokeJoin="round" strokeCap="round" />
               </>
             )}
+            {/* Start dot: shows where the finger must return to close the shape.
+                Pulses green when the finger is close enough to snap shut. */}
+            {drawing && points.length >= 1 && mode === "draw" && (
+              <>
+                {nearOrigin && <Circle cx={points[0].x} cy={points[0].y} r={18} color="rgba(50,200,80,0.30)" />}
+                <Circle cx={points[0].x} cy={points[0].y} r={8} color={nearOrigin ? "rgb(40,190,70)" : colors.ink} />
+                <Circle cx={points[0].x} cy={points[0].y} r={5} color="white" />
+              </>
+            )}
           </Canvas>
         )}
       </View>
@@ -208,9 +267,20 @@ export default function CutScreen() {
       <View style={styles.modes}>
         {/* Icons only, like a photo editor; the hint above says what the
             chosen tool does, and each button has a spoken label. */}
-        <Tool icon={ScissorsLineDashedIcon} label="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); }} />
-        <Tool icon={FrameIcon} label="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); }} />
+        <Tool icon={ScissorsLineDashedIcon} label="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); setNearOrigin(false); }} />
+        <Tool icon={FrameIcon} label="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); setNearOrigin(false); }} />
         <View style={styles.flex} />
+        {/* Zoom: tap to cycle 1× → 2× → 3× → 1×. Resets the lasso because
+            screen-space points shift when the fit box changes. */}
+        <Pressable
+          style={[styles.tool, styles.toolZoom, fit === null && styles.disabled]}
+          onPress={() => { setZoom((z) => ZOOM_LEVELS[(ZOOM_LEVELS.indexOf(z) + 1) % ZOOM_LEVELS.length]); setPoints([]); setNearOrigin(false); }}
+          disabled={fit === null}
+          accessibilityRole="button"
+          accessibilityLabel={`Zoom ${zoom}×, tap to change`}
+        >
+          <Text style={[styles.zoomText, zoom > 1 && styles.zoomTextActive]}>{zoom}×</Text>
+        </Pressable>
         <Pressable
           style={[styles.tool, (prepared === null || rotating || busy) && styles.disabled]}
           onPress={() => rotate().catch(console.warn)}
@@ -223,7 +293,7 @@ export default function CutScreen() {
         </Pressable>
         <Pressable
           style={[styles.tool, points.length === 0 && styles.disabled]}
-          onPress={() => setPoints([])}
+          onPress={() => { setPoints([]); setZoom(1); setNearOrigin(false); }}
           disabled={points.length === 0}
           accessibilityRole="button"
           accessibilityLabel="Start over"
@@ -234,6 +304,18 @@ export default function CutScreen() {
       </View>
 
       <View style={styles.actions}>
+        {/* Close shape: an explicit way to seal the path without returning the
+            finger to the starting dot.  Appears once there is something to
+            close. */}
+        {mode === "draw" && points.length >= 3 && !busy && (
+          <Pressable
+            style={styles.button}
+            onPress={closeShape}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>Close</Text>
+          </Pressable>
+        )}
         <Pressable
           style={[styles.button, styles.filled, (!ready || busy) && styles.disabled]}
           onPress={cut}
@@ -302,8 +384,11 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   toolChosen: { backgroundColor: colors.ink, borderColor: colors.ink },
+  toolZoom: { width: 48, height: 48 },
+  zoomText: { fontSize: 13, fontWeight: "700", color: colors.ink },
+  zoomTextActive: { color: colors.secondhand },
   actions: { flexDirection: "row", gap: 12, paddingHorizontal: 16 },
-  button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center", borderWidth: 1.5 },
+  button: { flex: 1, paddingVertical: 16, borderRadius: 999, alignItems: "center", borderWidth: 1.5, borderColor: colors.ink },
   filled: { backgroundColor: colors.ink, borderColor: colors.ink },
   disabled: { opacity: 0.4 },
   buttonText: { fontSize: 16, fontWeight: "600", color: colors.ink },

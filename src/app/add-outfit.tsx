@@ -8,7 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { passcodeHeaders, passcodeRejected } from "@/client/passcode-gate";
 import { useCloset } from "@/client/closet-context";
-import { RotateCwIcon } from "@/client/icons";
+import { cutOut } from "@/client/cut-out";
+import { RotateCwIcon, ScissorsLineDashedIcon } from "@/client/icons";
 import { colors } from "@/client/theme";
 import type { GarmentTags } from "@/shared/garment";
 import { JPEG_QUALITY, MAX_SIDE } from "@/shared/photo-size";
@@ -48,7 +49,7 @@ async function rotateCw(uri: string): Promise<string> {
 
 export default function AddOutfitScreen() {
   const insets = useSafeAreaInsets();
-  const { addRenderedPiece } = useCloset();
+  const { addRenderedPiece, addPieceFromUri } = useCloset();
   const [phase, setPhase] = useState<Phase>({ name: "start" });
   const photoBase64Ref = useRef<string | null>(null);
   const mounted = useRef(true);
@@ -159,6 +160,21 @@ export default function AddOutfitScreen() {
     });
   }
 
+  // Manual cut-out: opens the lasso tool on the full outfit photo so the
+  // person can draw precisely around one piece.  The photo is already shrunk
+  // to ≤ MAX_SIDE so passing MAX_SIDE avoids a second resize in cut-picture.ts.
+  async function cutPiece(index: number) {
+    if (phase.name !== "pieces") return;
+    const uri = await cutOut(phase.uri, MAX_SIDE, MAX_SIDE);
+    if (!mounted.current || uri === null) return;
+    await addPieceFromUri(phase.pieces[index].tags, uri);
+    if (!mounted.current) return;
+    setPhase((prev) => {
+      if (prev.name !== "pieces") return prev;
+      return { ...prev, pieces: prev.pieces.map((p, j) => j === index ? { ...p, added: true } : p) };
+    });
+  }
+
   if (phase.name === "start") {
     return (
       <View style={[styles.screen, { paddingBottom: insets.bottom + 16 }]}>
@@ -237,18 +253,22 @@ export default function AddOutfitScreen() {
           <Pressable style={[styles.btn, styles.btnOutlined, { marginHorizontal: 0 }]} onPress={() => router.back()} accessibilityRole="button">
             <Text style={styles.btnText}>{addedCount} {addedCount === 1 ? "piece" : "pieces"} added — done</Text>
           </Pressable>
-        ) : null
+        ) : undefined
       }
       data={pieces}
       keyExtractor={(_, i) => String(i)}
       renderItem={({ item, index }) => (
-        <PieceCard row={item} onAdd={() => addPiece(index).catch(console.warn)} />
+        <PieceCard
+          row={item}
+          onAdd={() => addPiece(index).catch(console.warn)}
+          onCutManually={() => cutPiece(index).catch(console.warn)}
+        />
       )}
     />
   );
 }
 
-function PieceCard({ row, onAdd }: { row: PieceRow; onAdd: () => void }) {
+function PieceCard({ row, onAdd, onCutManually }: { row: PieceRow; onAdd: () => void; onCutManually: () => void }) {
   const { tags, render, added } = row;
   return (
     <View style={styles.card}>
@@ -278,10 +298,23 @@ function PieceCard({ row, onAdd }: { row: PieceRow; onAdd: () => void }) {
           {tags.colors[0]} · {tags.type} · {tags.formality}
         </Text>
       </View>
-      {render.status === "done" && !added && (
-        <Pressable style={styles.addBtn} onPress={onAdd} accessibilityRole="button">
-          <Text style={styles.addBtnText}>Add</Text>
-        </Pressable>
+      {!added && (
+        <View style={styles.cardBtns}>
+          {render.status === "done" && (
+            <Pressable style={styles.addBtn} onPress={onAdd} accessibilityRole="button">
+              <Text style={styles.addBtnText}>Add</Text>
+            </Pressable>
+          )}
+          {/* Always available: draw around it manually with the lasso tool. */}
+          <Pressable
+            style={styles.cutBtn}
+            onPress={onCutManually}
+            accessibilityRole="button"
+            accessibilityLabel="Cut out manually"
+          >
+            <ScissorsLineDashedIcon size={20} color={colors.ink} />
+          </Pressable>
+        </View>
       )}
       {added && <Text style={styles.addedText}>Added</Text>}
     </View>
@@ -337,7 +370,9 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1, gap: 3 },
   cardLabel: { fontSize: 15, fontWeight: "500", color: colors.ink },
   cardMeta: { fontSize: 13, color: colors.soft },
+  cardBtns: { flexDirection: "row", alignItems: "center", gap: 8 },
   addBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: colors.ink },
   addBtnText: { fontSize: 14, fontWeight: "600", color: colors.ink },
+  cutBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
   addedText: { fontSize: 14, fontWeight: "500", color: colors.soft },
 });

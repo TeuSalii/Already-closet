@@ -41,6 +41,8 @@ type Closet = {
   // Adds a piece that is already tagged and rendered (from the outfit photo flow).
   // Returns the new piece's id.
   addRenderedPiece: (tags: GarmentTags, base64: string, mimeType: string) => Promise<string>;
+  // Adds a piece from a local file URI (e.g. from the manual cut-out tool).
+  addPieceFromUri: (tags: GarmentTags, uri: string) => Promise<string>;
 
   // The second-hand list: wishes nothing owned answered, to look for
   // second-hand instead of new.
@@ -182,6 +184,24 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
       const kept = new File(folder, `${id}.${ext}`);
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       await kept.write(bytes);
+      const piece = {
+        id,
+        photo: kept.uri,
+        addedAt: new Date().toISOString(),
+        status: "read" as const,
+        tags,
+        checked: [...FIELD_NAMES],
+      };
+      setPieces((current) => [piece, ...current!]);
+      return id;
+    },
+
+    async addPieceFromUri(tags, uri) {
+      const id = Date.now().toString(36);
+      const folder = new Directory(Paths.document, "closet");
+      folder.create({ idempotent: true, intermediates: true });
+      const kept = new File(folder, `${id}.jpg`);
+      await new File(uri).copy(kept);
       const piece = {
         id,
         photo: kept.uri,
