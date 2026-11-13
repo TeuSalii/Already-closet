@@ -63,7 +63,7 @@ const wearsLayer = (outfit: Outfit, layer: Layer) => layered(outfit).some((worn)
 export const HARD_RULES: readonly HardRule[] = [
   {
     id: "H1",
-    says: "One top or dress, one bottom unless it's a dress, one pair of shoes; over a dress only a sweater, jacket or coat",
+    says: "One top or dress, one bottom unless it's a dress, one pair of shoes; over a dress only a cardigan, jacket or coat",
     check(outfit) {
       if (new Set(outfit.map((piece) => piece.id)).size !== outfit.length) return "the same piece twice";
       const dresses = ofCategory(outfit, "dress").length;
@@ -71,12 +71,16 @@ export const HARD_RULES: readonly HardRule[] = [
       const shoes = ofCategory(outfit, "shoes").length;
       if (dresses > 1) return `${dresses} dresses`;
       if (dresses === 1 && bottoms > 0) return "a dress and a bottom";
-      // Over a dress: a sweater, jacket or coat. Not a T-shirt or blouse.
-      const topWithDress = upperBody(outfit).find((piece) => {
+      // Over a dress: only a cardigan, jacket or coat. A sweater or hoodie
+      // is too casual or bulky; a T-shirt or blouse sits under, not over.
+      const wrongWithDress = upperBody(outfit).filter((piece) => {
+        if (category(piece) === "dress") return false;
         const layer = layerOf(piece);
-        return category(piece) !== "dress" && (layer === "base" || layer === "shirt");
+        if (layer === "base" || layer === "shirt") return true;
+        if (layer === "sweater" && piece.tags.type !== "cardigan") return true;
+        return false;
       });
-      if (dresses === 1 && topWithDress) return `a dress with ${topWithDress.tags.label}`;
+      if (dresses === 1 && wrongWithDress.length > 0) return `a dress with ${names(wrongWithDress)}`;
       if (dresses === 0 && bottoms !== 1) return bottoms === 0 ? "no bottom" : `${bottoms} bottoms`;
       if (shoes !== 1) return shoes === 0 ? "no shoes" : `${shoes} pairs of shoes`;
       return null;

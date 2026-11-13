@@ -52,12 +52,18 @@ describe("H1 what an outfit is made of", () => {
     expect(broken(outfit())).toContain("H1");
   });
 
-  it("refuses a T-shirt or blouse with a dress, accepts a cardigan over it", () => {
+  it("over a dress: refuses T-shirt, blouse, sweater, hoodie; accepts cardigan, jacket, coat", () => {
     const dress = () => piece("black dress", { type: "dress", colors: ["black"] });
     const blouse = piece("cream blouse", { type: "blouse", colors: ["cream"] });
+    const sweater = piece("gray sweater", { type: "sweater", colors: ["gray"] });
+    const hoodie = piece("navy hoodie", { type: "hoodie", colors: ["navy"] });
     const cardigan = piece("beige cardigan", { type: "cardigan", colors: ["beige"] });
+    const jacket = piece("black jacket", { type: "jacket", colors: ["black"] });
     expect(broken([dress(), blouse, whiteSneakers()])).toContain("H1");
+    expect(broken([dress(), sweater, whiteSneakers()])).toContain("H1");
+    expect(broken([dress(), hoodie, whiteSneakers()])).toContain("H1");
     expect(broken([dress(), cardigan, whiteSneakers()])).not.toContain("H1");
+    expect(broken([dress(), jacket, whiteSneakers()])).not.toContain("H1");
   });
 
   it("refuses the same piece twice", () => {

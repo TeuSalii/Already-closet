@@ -98,6 +98,11 @@ export default function Closet() {
           <Pressable onPress={() => router.push("/coverage")} accessibilityRole="button">
             <Text style={styles.plainLink}>What's scanned</Text>
           </Pressable>
+          {stage === "ready" && (
+            <Pressable onPress={() => router.push("/capsule")} accessibilityRole="button">
+              <Text style={styles.plainLink}>Rarely worn</Text>
+            </Pressable>
+          )}
           {wishes.length > 0 && (
             <Pressable onPress={() => router.push("/secondhand")} accessibilityRole="button">
               <Text style={styles.link}>Second-hand: {wishes.length}</Text>
