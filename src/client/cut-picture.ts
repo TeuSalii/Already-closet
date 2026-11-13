@@ -50,6 +50,16 @@ export async function openPicture(uri: string): Promise<SkImage> {
   return image;
 }
 
+// Rotates the already-prepared picture 90° clockwise and re-opens it for
+// drawing. Resets the lasso: the old points no longer match the new frame.
+export async function rotateCw(uri: string): Promise<{ uri: string; image: SkImage }> {
+  const context = ImageManipulator.manipulate(uri);
+  context.rotate(90);
+  const result = await context.renderAsync();
+  const saved = await result.saveAsync({ format: SaveFormat.JPEG, compress: JPEG_QUALITY });
+  return { uri: saved.uri, image: await openPicture(saved.uri) };
+}
+
 // The shape the person drew, in the picture's own pixels. Paints the
 // picture inside it onto white and crops to the shape.
 export async function renderCutout(image: SkImage, outline: SkPoint[]): Promise<string> {

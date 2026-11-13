@@ -53,6 +53,16 @@ export function FrameIcon({ size = 24, color = "black" }: IconProps) {
   );
 }
 
+export function RotateCwIcon({ size = 24, color = "black" }: IconProps) {
+  const line = { stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" {...line} />
+      <Path d="M21 3v5h-5" {...line} />
+    </Svg>
+  );
+}
+
 // Tab bar icons.
 
 export function CameraIcon({ size = 24, color = "black" }: IconProps) {

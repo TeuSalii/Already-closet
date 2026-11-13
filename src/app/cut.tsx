@@ -6,8 +6,8 @@ import { ActivityIndicator, type GestureResponderEvent, Pressable, StyleSheet, T
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { currentCut, deleteIfCached, settleCut } from "@/client/cut-out";
-import { prepare, renderCutout } from "@/client/cut-picture";
-import { FrameIcon, type IconProps, RestartIcon, ScissorsLineDashedIcon } from "@/client/icons";
+import { prepare, renderCutout, rotateCw } from "@/client/cut-picture";
+import { FrameIcon, type IconProps, RestartIcon, RotateCwIcon, ScissorsLineDashedIcon } from "@/client/icons";
 import { caughtEdge, close, extend, type LassoPoint, place } from "@/client/lasso";
 import { colors } from "@/client/theme";
 
@@ -30,6 +30,7 @@ export default function CutScreen() {
   const [points, setPoints] = useState<LassoPoint[]>([]); // on screen; see lasso.ts
   const [drawing, setDrawing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [rotating, setRotating] = useState(false);
 
   useEffect(() => {
     if (params === null) return;
@@ -118,6 +119,21 @@ export default function CutScreen() {
   }, [drawing, last]);
   const onEdge = drawing && last !== undefined && last.t !== null;
 
+  async function rotate() {
+    if (prepared === null || rotating || busy) return;
+    setRotating(true);
+    setPoints([]);
+    try {
+      const next = await rotateCw(prepared.uri);
+      made.add(next.uri);
+      setPrepared(next);
+    } catch (error) {
+      console.warn(error);
+    } finally {
+      setRotating(false);
+    }
+  }
+
   async function cut() {
     if (fit === null) return;
     setBusy(true);
@@ -195,6 +211,16 @@ export default function CutScreen() {
         <Tool icon={ScissorsLineDashedIcon} label="Draw around it" chosen={mode === "draw"} onPress={() => { setMode("draw"); setPoints([]); }} />
         <Tool icon={FrameIcon} label="Frame" chosen={mode === "frame"} onPress={() => { setMode("frame"); setPoints([]); }} />
         <View style={styles.flex} />
+        <Pressable
+          style={[styles.tool, (prepared === null || rotating || busy) && styles.disabled]}
+          onPress={() => rotate().catch(console.warn)}
+          disabled={prepared === null || rotating || busy}
+          accessibilityRole="button"
+          accessibilityLabel="Rotate 90°"
+          accessibilityState={{ disabled: prepared === null || rotating || busy }}
+        >
+          <RotateCwIcon color={colors.ink} />
+        </Pressable>
         <Pressable
           style={[styles.tool, points.length === 0 && styles.disabled]}
           onPress={() => setPoints([])}
