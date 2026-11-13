@@ -2,7 +2,7 @@ import { router, Tabs } from "expo-router";
 import { useRef } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { GridIcon, ShirtIcon } from "@/client/icons";
+import { CameraIcon, GridIcon, ShirtIcon } from "@/client/icons";
 import { colors } from "@/client/theme";
 
 // Moved from index.tsx: five quick taps on the barely-visible square open the
@@ -47,6 +47,14 @@ export default function TabsLayout() {
           title: "Outfit",
           headerTitle: "Today's outfit",
           tabBarIcon: ({ color, size }) => <ShirtIcon color={color as string | undefined} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="check"
+        options={{
+          title: "Check",
+          headerTitle: "Before you buy",
+          tabBarIcon: ({ color, size }) => <CameraIcon color={color as string | undefined} size={size} />,
         }}
       />
       <Tabs.Screen
