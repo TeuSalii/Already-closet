@@ -46,7 +46,7 @@ export default function TabsLayout() {
         options={{
           title: "Outfit",
           headerTitle: "Today's outfit",
-          tabBarIcon: ({ color, size }) => <ShirtIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <ShirtIcon color={color as string | undefined} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -54,7 +54,7 @@ export default function TabsLayout() {
         options={{
           title: "Closet",
           headerTitle: "My closet",
-          tabBarIcon: ({ color, size }) => <GridIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <GridIcon color={color as string | undefined} size={size} />,
           headerRight: () => <SecretDoor />,
         }}
       />

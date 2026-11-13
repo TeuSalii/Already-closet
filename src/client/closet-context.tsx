@@ -34,6 +34,8 @@ type Closet = {
   confirmLabels: (id: string) => void; // "the labels are right": all checked
   retake: (id: string) => Promise<void>; // a new photo, read from scratch
   removePiece: (id: string) => void;
+  // Stamps today's date as lastWorn on each piece in the list (wear log).
+  markWorn: (ids: string[]) => void;
 
   // The second-hand list: wishes nothing owned answered, to look for
   // second-hand instead of new.
@@ -152,6 +154,13 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
       const photo = pieces.find((piece) => piece.id === id)?.photo;
       setPieces((current) => current!.filter((piece) => piece.id !== id));
       if (photo !== undefined) deleteFile(photo);
+    },
+
+    markWorn(ids) {
+      const today = new Date().toISOString().slice(0, 10);
+      setPieces((current) =>
+        current!.map((piece) => (ids.includes(piece.id) ? { ...piece, lastWorn: today } : piece)),
+      );
     },
 
     wishes,

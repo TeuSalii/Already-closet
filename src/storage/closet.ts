@@ -11,7 +11,7 @@ export type Origin = "secondhand" | "new" | "gift";
 // What a piece always has. `origin` is optional because the person answers
 // it after scanning (or never), and pieces scanned before origin existed
 // simply don't have one. Missing means "not answered yet".
-type PieceBase = { id: string; photo: string; addedAt: string; origin?: Origin };
+type PieceBase = { id: string; photo: string; addedAt: string; origin?: Origin; lastWorn?: string };
 
 // Each state carries exactly the data that exists in it: there are tags
 // only once the model has read the photo.
