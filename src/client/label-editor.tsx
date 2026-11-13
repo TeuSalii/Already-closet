@@ -6,6 +6,7 @@ import {
   appliesTo, DETAILS, type Detail, detailChoices, type Field, FIELD_NAMES, FIELDS, fieldsToCheck, type GarmentTags,
   missingDetails,
 } from "@/shared/garment";
+import { type Color, COLOR_INFO } from "@/shared/outfit/colors";
 
 // The AI's labels, shown so the person can check and change them before
 // anything is done with them (concept v3: "Verify"). Used for pieces you own,
@@ -81,7 +82,23 @@ export function LabelEditor({ tags, checked, onChange, onConfirm }: Props) {
               accessibilityHint={`Change ${NAMES[field].toLowerCase()}`}
             >
               <Text style={styles.fieldName}>{NAMES[field]}</Text>
-              <Text style={styles.fieldValue}>{field === "colors" ? tags.colors.join(", ") : (tags[field] ?? "not set")}</Text>
+              {field === "colors" ? (
+                <View style={styles.colorPreview}>
+                  {tags.colors.map((c, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.colorDot,
+                        { backgroundColor: COLOR_INFO[c as Color].hex },
+                        COLOR_INFO[c as Color].lab[0] > 80 && styles.colorDotLight,
+                      ]}
+                    />
+                  ))}
+                  <Text style={styles.fieldValue} numberOfLines={1}>{tags.colors.join(", ")}</Text>
+                </View>
+              ) : (
+                <Text style={styles.fieldValue}>{tags[field] ?? "not set"}</Text>
+              )}
               {toCheck.includes(field) && <Text style={styles.check}>Please check</Text>}
             </Pressable>
             {open === field && (field === "colors" ? (
@@ -92,6 +109,17 @@ export function LabelEditor({ tags, checked, onChange, onConfirm }: Props) {
                 value={tags[field] ?? ""}
                 onChange={(value) => {
                   onChange(field, value as GarmentTags[typeof field]);
+                  // When the type changes, try to update the label to match.
+                  // "navy top" corrected to shorts → "navy shorts". If the
+                  // old type word isn't in the label, the user edits it manually.
+                  if (field === "type") {
+                    const pattern = new RegExp(`\\b${tags.type}\\b`, "i");
+                    const newLabel = tags.label.replace(pattern, value);
+                    if (newLabel !== tags.label) {
+                      onChange("label", newLabel);
+                      setLabel(newLabel);
+                    }
+                  }
                   setOpen(null);
                 }}
               />
@@ -125,6 +153,8 @@ function OneChoice({ options, value, onChange }: {
 
 // Colours: up to three, the main one first. Tapping adds a colour at the
 // end, tapping a chosen one takes it out. At least one always stays.
+// Shown as a swatch grid so the actual colour is visible — much faster
+// than reading "light-blue" or "burgundy" in a list.
 function ColorChoice({ value, onChange }: {
   value: GarmentTags["colors"];
   onChange: (value: GarmentTags["colors"]) => void;
@@ -139,17 +169,28 @@ function ColorChoice({ value, onChange }: {
 
   return (
     <View style={styles.choice}>
-      <Text style={styles.hint}>Main colour first, up to {MAX_COLORS}. Tap a chosen colour to take it out.</Text>
-      <View style={styles.chips}>
+      <Text style={styles.hint}>Main colour first, up to {MAX_COLORS}. Tap a chosen colour to remove it.</Text>
+      <View style={styles.swatchGrid}>
         {FIELDS.colors.map((color) => {
           const position = value.indexOf(color);
+          const chosen = position !== -1;
+          const info = COLOR_INFO[color as Color];
+          const isLight = info.lab[0] > 80;
           return (
-            <Chip
+            <Pressable
               key={color}
-              text={position === -1 ? color : `${position + 1}. ${color}`}
-              chosen={position !== -1}
+              style={[styles.swatch, { backgroundColor: info.hex }, isLight && styles.swatchLight]}
               onPress={() => toggle(color)}
-            />
+              accessibilityRole="button"
+              accessibilityLabel={color}
+              accessibilityState={{ selected: chosen }}
+            >
+              {chosen && (
+                <View style={styles.swatchBadge}>
+                  <Text style={styles.swatchBadgeText}>{position + 1}</Text>
+                </View>
+              )}
+            </Pressable>
           );
         })}
       </View>
@@ -186,6 +227,26 @@ const styles = StyleSheet.create({
   chipChosen: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipText: { fontSize: 14, color: colors.ink },
   chipTextChosen: { color: colors.page },
+
+  colorPreview: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  colorDot: { width: 14, height: 14, borderRadius: 7 },
+  colorDotLight: { borderWidth: 1, borderColor: colors.line },
+
+  swatchGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingBottom: 12 },
+  swatch: { width: 54, height: 54, borderRadius: 8 },
+  swatchLight: { borderWidth: 1, borderColor: colors.line },
+  swatchBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  swatchBadgeText: { fontSize: 11, fontWeight: "700", color: "white" },
   confirm: { paddingVertical: 14, borderRadius: 999, borderWidth: 1.5, borderColor: colors.ink, alignItems: "center" },
   confirmText: { fontSize: 16, fontWeight: "600", color: colors.ink },
 });
