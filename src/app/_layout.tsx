@@ -17,6 +17,7 @@ export default function RootLayout() {
           <Stack.Screen name="sweep" options={{ title: "Scan" }} />
           <Stack.Screen name="capsule" options={{ title: "Rarely worn" }} />
           <Stack.Screen name="developer" options={{ title: "Developer" }} />
+          <Stack.Screen name="add-outfit" options={{ title: "Add an outfit" }} />
         </Stack>
       </ClosetProvider>
     </PasscodeGate>

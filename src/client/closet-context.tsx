@@ -36,6 +36,11 @@ type Closet = {
   removePiece: (id: string) => void;
   // Stamps today's date as lastWorn on each piece in the list (wear log).
   markWorn: (ids: string[]) => void;
+  // Swaps the photo for a piece (Gemini-drawn or retake) without re-reading tags.
+  updatePhoto: (id: string, photo: string) => void;
+  // Adds a piece that is already tagged and rendered (from the outfit photo flow).
+  // Returns the new piece's id.
+  addRenderedPiece: (tags: GarmentTags, base64: string, mimeType: string) => Promise<string>;
 
   // The second-hand list: wishes nothing owned answered, to look for
   // second-hand instead of new.
@@ -161,6 +166,32 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
       setPieces((current) =>
         current!.map((piece) => (ids.includes(piece.id) ? { ...piece, lastWorn: today } : piece)),
       );
+    },
+
+    updatePhoto(id, photo) {
+      const old = pieces.find((p) => p.id === id)?.photo;
+      update(id, (piece) => ({ ...piece, photo }));
+      if (old !== undefined) deleteFile(old);
+    },
+
+    async addRenderedPiece(tags, base64, mimeType) {
+      const id = Date.now().toString(36);
+      const ext = mimeType === "image/png" ? "png" : "jpg";
+      const folder = new Directory(Paths.document, "closet");
+      folder.create({ idempotent: true, intermediates: true });
+      const kept = new File(folder, `${id}.${ext}`);
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      await kept.write(bytes);
+      const piece = {
+        id,
+        photo: kept.uri,
+        addedAt: new Date().toISOString(),
+        status: "read" as const,
+        tags,
+        checked: [...FIELD_NAMES],
+      };
+      setPieces((current) => [piece, ...current!]);
+      return id;
     },
 
     wishes,

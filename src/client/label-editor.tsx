@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { colors } from "@/client/theme";
 import {
   appliesTo, DETAILS, type Detail, detailChoices, type Field, FIELD_NAMES, FIELDS, fieldsToCheck, type GarmentTags,
-  missingDetails,
+  missingDetails, TYPES,
 } from "@/shared/garment";
 import { type Color, COLOR_INFO } from "@/shared/outfit/colors";
 
@@ -27,6 +27,28 @@ const NAMES: Record<Field, string> = {
 };
 
 const isDetail = (field: Field): field is Detail => (DETAILS as readonly string[]).includes(field);
+
+// Try to replace the old garment type word(s) in a label with the new type.
+// 1. Exact match, allowing hyphen/space equivalence ("tank-top" ↔ "tank top").
+// 2. Fallback: replace any known garment type word found in the label.
+// Returns the original label if nothing can be replaced.
+function replaceTypeInLabel(label: string, oldType: string, newType: string): string {
+  // Build a pattern that accepts hyphens or spaces between words of the type.
+  const escaped = oldType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-\s]+/g, "[-\\s]+");
+  const flexible = new RegExp(`\\b${escaped}\\b`, "i");
+  const result = label.replace(flexible, newType);
+  if (result !== label) return result;
+
+  // Fallback: find the first known garment type word in the label and replace it.
+  for (const t of TYPES) {
+    if (t === oldType) continue;
+    const te = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-\s]+/g, "[-\\s]+");
+    const tp = new RegExp(`\\b${te}\\b`, "i");
+    const r = label.replace(tp, newType);
+    if (r !== label) return r;
+  }
+  return label;
+}
 
 const MAX_COLORS = 3; // the same limit the model has (TAG_SCHEMA)
 
@@ -110,11 +132,11 @@ export function LabelEditor({ tags, checked, onChange, onConfirm }: Props) {
                 onChange={(value) => {
                   onChange(field, value as GarmentTags[typeof field]);
                   // When the type changes, try to update the label to match.
-                  // "navy top" corrected to shorts → "navy shorts". If the
-                  // old type word isn't in the label, the user edits it manually.
+                  // "navy top" corrected to shorts → "navy shorts".
+                  // Strategy: try the old type first (with hyphen/space interchangeable),
+                  // then fall back to scanning for any garment type word in the label.
                   if (field === "type") {
-                    const pattern = new RegExp(`\\b${tags.type}\\b`, "i");
-                    const newLabel = tags.label.replace(pattern, value);
+                    const newLabel = replaceTypeInLabel(tags.label, tags.type, value as string);
                     if (newLabel !== tags.label) {
                       onChange("label", newLabel);
                       setLabel(newLabel);

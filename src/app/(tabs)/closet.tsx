@@ -125,23 +125,12 @@ export default function Closet() {
         renderItem={({ item }) => <Tile piece={item} onPress={() => open(item)} />}
       />
       <View style={[styles.actions, { marginBottom: insets.bottom + 16 }]}>
-        {stage === "empty" ? (
-          <Pressable
-            style={[styles.button, styles.filled, { flex: 1 }]}
-            onPress={() => router.push("/wish")}
-          >
-            <Text style={[styles.buttonText, styles.filledText]}>I want something</Text>
-          </Pressable>
-        ) : (
-          <>
-            <Pressable style={[styles.button, styles.outlined]} onPress={() => add().catch(console.warn)}>
-              <Text style={styles.buttonText}>Add a piece</Text>
-            </Pressable>
-            <Pressable style={[styles.button, styles.filled]} onPress={() => router.push("/wish")}>
-              <Text style={[styles.buttonText, styles.filledText]}>I want something</Text>
-            </Pressable>
-          </>
-        )}
+        <Pressable style={[styles.button, styles.outlined]} onPress={() => add().catch(console.warn)}>
+          <Text style={styles.buttonText}>Add a piece</Text>
+        </Pressable>
+        <Pressable style={[styles.button, styles.filled]} onPress={() => router.push("/add-outfit")}>
+          <Text style={[styles.buttonText, styles.filledText]}>Add an outfit</Text>
+        </Pressable>
       </View>
     </View>
   );
